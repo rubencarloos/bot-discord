@@ -21,10 +21,17 @@ export const verificacion = {
   rolVerificadoId: '1558370481948725308', // rol que recibe al terminar
   foroRegistroId: '1573611695010746459', // foro privado donde se guardan los formularios
 
-  // Preguntas del formulario (máximo 5). estilo: 'corto' o 'largo'
+  // Preguntas del formulario (máximo 5).
+  // tipo: 'casillas' (varias), 'unica' (solo una) o texto (por defecto; estilo 'corto' o 'largo')
   preguntas: [
-    { id: 'conociste', texto: '¿Cómo conociste este servidor?', estilo: 'corto', max: 100 },
-    { id: 'edad', texto: '¿Cuántos años tienes?', estilo: 'corto', max: 3 },
+    {
+      id: 'conociste', tipo: 'casillas', texto: '¿Cómo nos has conocido?', descripcion: 'Puedes marcar varias',
+      opciones: ['Invitación de conocido', 'YouTube', 'TikTok', 'Otras redes sociales', 'Otro'],
+    },
+    {
+      id: 'actividad', tipo: 'unica', texto: '¿Cuánta será tu actividad en el servidor?', descripcion: 'Elige solo una',
+      opciones: ['Baja', 'Media', 'Alta', 'Siempre que pueda'],
+    },
     { id: 'motivo', texto: '¿Por qué quieres unirte?', estilo: 'largo', max: 500 },
   ],
 };

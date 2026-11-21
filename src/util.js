@@ -1,4 +1,6 @@
-import { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
+import {
+  ActionRowBuilder, CheckboxGroupBuilder, LabelBuilder, ModalBuilder, RadioGroupBuilder, TextInputBuilder, TextInputStyle,
+} from 'discord.js';
 import { niveles } from './config.js';
 
 export const ts = (ms, f = 'F') => `<t:${Math.floor(ms / 1000)}:${f}>`;
@@ -38,7 +40,34 @@ export function rolesDesdeNivel(guild, minimo) {
     .filter((id) => guild.roles.cache.has(id));
 }
 
+const valorOpcion = (i) => `op${i}`;
+
+// Formulario con casillas / opción única / texto (Discord admite máx. 5 preguntas)
+function crearModalMixto(customId, titulo, preguntas) {
+  const modal = new ModalBuilder().setCustomId(customId).setTitle(titulo.slice(0, 45));
+  for (const p of preguntas.slice(0, 5)) {
+    const label = new LabelBuilder().setLabel(p.texto.slice(0, 45));
+    if (p.descripcion) label.setDescription(p.descripcion.slice(0, 100));
+    const opciones = (p.opciones ?? []).map((texto, i) => ({ label: texto.slice(0, 100), value: valorOpcion(i) }));
+    if (p.tipo === 'casillas') {
+      label.setCheckboxGroupComponent(new CheckboxGroupBuilder()
+        .setCustomId(p.id).setOptions(opciones).setMinValues(1).setMaxValues(opciones.length).setRequired(true));
+    } else if (p.tipo === 'unica') {
+      label.setRadioGroupComponent(new RadioGroupBuilder().setCustomId(p.id).setOptions(opciones).setRequired(true));
+    } else {
+      label.setTextInputComponent(new TextInputBuilder()
+        .setCustomId(p.id)
+        .setStyle(p.estilo === 'largo' ? TextInputStyle.Paragraph : TextInputStyle.Short)
+        .setMaxLength(p.max ?? 400)
+        .setRequired(true));
+    }
+    modal.addLabelComponents(label);
+  }
+  return modal;
+}
+
 export function crearModal(customId, titulo, preguntas) {
+  if (preguntas.some((p) => p.tipo === 'casillas' || p.tipo === 'unica')) return crearModalMixto(customId, titulo, preguntas);
   const modal = new ModalBuilder().setCustomId(customId).setTitle(titulo.slice(0, 45));
   for (const p of preguntas.slice(0, 5)) {
     const input = new TextInputBuilder()
@@ -53,10 +82,14 @@ export function crearModal(customId, titulo, preguntas) {
 }
 
 export function leerRespuestas(interaction, preguntas) {
-  return preguntas.slice(0, 5).map((p) => ({
-    pregunta: p.texto,
-    respuesta: interaction.fields.getTextInputValue(p.id).trim(),
-  }));
+  const textoDe = (p, valor) => p.opciones?.[Number(String(valor).slice(2))] ?? String(valor);
+  return preguntas.slice(0, 5).map((p) => {
+    let respuesta;
+    if (p.tipo === 'casillas') respuesta = (interaction.fields.getCheckboxGroup(p.id) ?? []).map((v) => `• ${textoDe(p, v)}`).join('\n');
+    else if (p.tipo === 'unica') respuesta = textoDe(p, interaction.fields.getRadioGroup(p.id) ?? '—');
+    else respuesta = interaction.fields.getTextInputValue(p.id).trim();
+    return { pregunta: p.texto, respuesta: respuesta || '—' };
+  });
 }
 
 const idsDeBotones = (m) => m.components.flatMap((fila) => fila.components ?? []).map((c) => c.customId);
