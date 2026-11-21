@@ -5,6 +5,7 @@ import {
 import { eventos as cfg } from '../config.js';
 import { normativaEvento, politicaPremios } from '../textos.js';
 import { nivelDe, ts } from '../util.js';
+import { anadirWhitelist, exarotonConfigurado, quitarWhitelist } from '../exaroton.js';
 
 const COLOR = { marca: 0x5865f2, paso: 0x3ba55c, aviso: 0xfee75c, peligro: 0xed4245, oro: 0xf1c40f, ok: 0x57f287 };
 const TOTAL_PASOS = 4;
@@ -308,18 +309,65 @@ async function aceptarUsuario(i, eventoId, userId) {
     }).then(() => true).catch(() => false);
   }
 
+  const nametag = nametagDe(i.message);
+  const wl = await cambiarWhitelist(nametag, true);
+
   const actualizado = EmbedBuilder.from(i.message.embeds[0])
     .setTitle('✅ Inscripción aceptada')
     .setColor(COLOR.ok)
-    .addFields({ name: '🛡️ Estado', value: `Aceptado por ${i.user} ${ts(Date.now(), 'R')}${enviado ? '\n📩 Mensaje privado enviado' : '\n⚠️ No se pudo enviar el mensaje privado (tiene los MD cerrados)'}` })
+    .addFields(
+      { name: '🛡️ Estado', value: `Aceptado por ${i.user} ${ts(Date.now(), 'R')}${enviado ? '\n📩 Mensaje privado enviado' : '\n⚠️ No se pudo enviar el mensaje privado (tiene los MD cerrados)'}` },
+      { name: '📃 Whitelist', value: wl.texto },
+    )
     .setFooter({ text: `Aceptado · evento:${eventoId}` });
   await i.editReply({
     embeds: [actualizado],
-    components: [fila(new ButtonBuilder().setCustomId(`x:${i.message.id}`).setLabel(`Aceptado por ${i.user.username}`).setEmoji('✅').setStyle(ButtonStyle.Secondary).setDisabled(true))],
+    components: [botonesAceptado(i.user.username, eventoId, userId, wl.ok)],
   });
   if (!enviado) {
     await i.followUp({ content: `⚠️ Usuario aceptado, pero no he podido enviarle el mensaje privado${usuario ? ` a ${usuario}` : ''}. Avísale tú.`, flags: MessageFlags.Ephemeral });
   }
+}
+
+// ─── Whitelist del servidor de Minecraft (exaroton) ─────────────────────────
+function nametagDe(mensaje) {
+  const campo = mensaje.embeds[0]?.fields?.find((f) => f.name.includes('Usuario Minecraft'));
+  return campo?.value.match(/`([^`]+)`/)?.[1] ?? null;
+}
+
+async function cambiarWhitelist(nametag, anadir) {
+  if (!nametag) return { ok: false, texto: '⚠️ No encuentro el nametag en esta inscripción.' };
+  if (!exarotonConfigurado()) return { ok: false, texto: '⚠️ La conexión con exaroton no está configurada todavía.' };
+  try {
+    if (anadir) await anadirWhitelist(nametag);
+    else await quitarWhitelist(nametag);
+    return { ok: anadir, texto: anadir ? `✅ \`${nametag}\` añadido a la whitelist ${ts(Date.now(), 'R')}` : `🚫 \`${nametag}\` quitado de la whitelist ${ts(Date.now(), 'R')}` };
+  } catch (e) {
+    console.error('exaroton:', e.message);
+    return { ok: !anadir, texto: `❌ No se pudo ${anadir ? 'añadir a' : 'quitar de'} la whitelist: ${e.message}`.slice(0, 1000) };
+  }
+}
+
+function botonesAceptado(staff, eventoId, userId, enWhitelist) {
+  return fila(
+    new ButtonBuilder().setCustomId(`x:aceptado:${userId}`).setLabel(`Aceptado por ${staff}`.slice(0, 80)).setEmoji('✅').setStyle(ButtonStyle.Secondary).setDisabled(true),
+    enWhitelist
+      ? btn(`ev:unwl:${eventoId}:${userId}`, 'Quitar de la whitelist', '🚫', ButtonStyle.Danger)
+      : btn(`ev:wl:${eventoId}:${userId}`, 'Añadir a la whitelist', '📃', ButtonStyle.Primary),
+  );
+}
+
+async function botonWhitelist(i, eventoId, userId, anadir) {
+  if (nivelDe(i.member) < cfg.nivelAceptar) {
+    return i.reply({ content: `⛔ Solo el nivel de autoridad ${cfg.nivelAceptar} puede gestionar la whitelist.`, flags: MessageFlags.Ephemeral });
+  }
+  await i.deferUpdate();
+  const wl = await cambiarWhitelist(nametagDe(i.message), anadir);
+  const embed = EmbedBuilder.from(i.message.embeds[0]);
+  const campos = (embed.data.fields ?? []).filter((f) => f.name !== '📃 Whitelist');
+  embed.setFields(...campos, { name: '📃 Whitelist', value: `${wl.texto}\n_por ${i.user}_` });
+  const staff = i.message.components[0]?.components[0]?.label?.replace(/^Aceptado por /, '') ?? i.user.username;
+  await i.editReply({ embeds: [embed], components: [botonesAceptado(staff, eventoId, userId, wl.ok)] });
 }
 
 // ─── Casillas (formulario emergente con checkboxes; si falla, menú desplegable) ─
@@ -397,6 +445,7 @@ export function registrarEventos(client) {
         const [, accion, eventoId, userId] = i.customId.split(':');
         if (accion === 'abrir') return await abrirFormulario(i, eventoId);
         if (accion === 'aceptar') return await aceptarUsuario(i, eventoId, userId);
+        if (accion === 'wl' || accion === 'unwl') return await botonWhitelist(i, eventoId, userId, accion === 'wl');
         return;
       }
 
