@@ -29,6 +29,13 @@ export const verificacion = {
   ],
 };
 
+export const eventos = {
+  registroId: '1573610493988311100', // donde llegan los formularios completados
+  nivelPublicar: 5, // /formulario
+  nivelAceptar: 5, // botón "Aceptar usuario"
+  minutosParaCompletar: 30, // si no lo termina en este tiempo, el canal se borra
+};
+
 export const casos = {
   categoriaId: '1573624085005738085', // categoría donde se crean los canales caso-...
   registros: { // dónde se guarda cada tipo de caso al cerrarse

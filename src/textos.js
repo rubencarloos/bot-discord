@@ -38,3 +38,19 @@ export const eventos = {
     '• Los eventos con recompensa económica se entregan exclusivamente según la política del premio en el formulario del evento al ganador oficial, una vez revisada y validada la partida.',
   ].join('\n\n'),
 };
+
+export const normativaEvento = {
+  titulo: '📜 Normativa de los Eventos — Tmb Studio',
+  intro: 'Al participar en los eventos de Tmb Studio, aceptas las siguientes condiciones:',
+  secciones: [
+    ['🎮 Juego limpio', 'Jugar limpio **sin clientes modificados, macros ni ventajas externas**, comprometiéndote a no aprovecharte de bugs, fallos del mapa o mecánicas rotas (debiendo **reportarlos al instante** si los encuentras), respetando las dinámicas de cada ronda y evitando cualquier tipo de **ghosting o ayuda externa** una vez eliminado.'],
+    ['🎙️ Grabación', 'Para garantizar una buena grabación, está prohibido **saturar el micrófono**, reproducir audios externos, interrumpir a los administradores cuando explican las normas o usar lenguaje ofensivo y no apto.'],
+    ['⏰ Compromiso', 'Se exige **puntualidad** y pleno respeto a las decisiones que tome la administración.'],
+    ['⚠️ Consecuencias', 'Si incumples cualquiera de estas normas, asumes la **descalificación inmediata**, la **pérdida total de cualquier premio** obtenido y la **expulsión de futuros eventos**.'],
+  ],
+};
+
+export const politicaPremios = {
+  titulo: '🏆 Política de Premios',
+  texto: 'Al marcar esta casilla, confirmas ser plenamente consciente de que participas en este evento compitiendo por un **premio real**, el cual se entregará **única y exclusivamente en formato de tarjeta regalo digital** (sin posibilidad de canje por dinero en efectivo ni transferencias directas) al **ganador oficial** una vez validada la grabación.\n\nEl incumplimiento de cualquiera de las normas del evento, el abandono injustificado o cualquier conducta antideportiva detectada durante o después de la partida supondrá la **anulación automática del premio** sin derecho a reclamación.',
+};

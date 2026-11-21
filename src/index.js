@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { registrar as registrarVerificacion } from './features/verificacion.js';
 import { registrar as registrarMenu } from './features/menu.js';
+import { registrarEventos } from './features/eventos.js';
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 if (!DISCORD_TOKEN || !CLIENT_ID) {
@@ -28,14 +29,22 @@ const route = GUILD_ID
 await rest.put(route, { body });
 console.log(`Registrados ${body.length} comandos ${GUILD_ID ? 'en el servidor' : 'globales'}.`);
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+const client = new Client({ intents: [
+  GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildScheduledEvents,
+  GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent,
+] });
 client.commands = commands;
 registrarVerificacion(client);
 registrarMenu(client);
+registrarEventos(client);
 
 client.once(Events.ClientReady, (c) => console.log(`✅ Conectado como ${c.user.tag}`));
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isAutocomplete()) {
+    await commands.get(interaction.commandName)?.autocomplete?.(interaction).catch(console.error);
+    return;
+  }
   if (!interaction.isChatInputCommand()) return;
   const cmd = commands.get(interaction.commandName);
   if (!cmd) return;
