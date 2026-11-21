@@ -71,4 +71,9 @@ export const tiposCaso = {
   'ayuda-discord': { tipo: 'ayuda', etiqueta: 'Ayuda de Discord', volver: 'nav:ayuda', preguntas: P_OCURRIDO },
   'ayuda-general': { tipo: 'ayuda', etiqueta: 'Ayuda General', volver: 'nav:ayuda', preguntas: P_OCURRIDO },
   postulacion: { tipo: 'postu', etiqueta: 'Postulación Estudio', volver: 'nav:soporte', preguntas: P_POSTU },
+
+  // Casos abiertos por el staff con /abrircaso
+  'staff-reporte': { tipo: 'reporte', etiqueta: 'Reporte (abierto por el staff)' },
+  'staff-ayuda': { tipo: 'ayuda', etiqueta: 'Ayuda (abierto por el staff)' },
+  'staff-postu': { tipo: 'postu', etiqueta: 'Postulación Estudio (abierto por el staff)' },
 };

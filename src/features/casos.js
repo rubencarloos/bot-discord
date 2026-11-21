@@ -84,6 +84,44 @@ export async function crearCaso(guild, usuario, clave, respuestas) {
   return crearCanal(guild, nombre, `${def.etiqueta} · Abierto por <@${usuario.id}> · clave:${clave}`, [usuario.id], { embeds: [embed] });
 }
 
+// /abrircaso: el staff abre un caso con uno o varios usuarios
+export async function abrirCasoStaff(i) {
+  if (nivelDe(i.member) < cfg.nivelGestionar) {
+    return i.reply({ content: `⛔ Necesitas nivel de autoridad ${cfg.nivelGestionar} o superior.`, flags: MessageFlags.Ephemeral });
+  }
+  const tipo = i.options.getString('tipo', true);
+  const clave = `staff-${tipo}`;
+  const usuarios = [...new Map(
+    ['usuario', 'usuario2', 'usuario3', 'usuario4', 'usuario5']
+      .map((n) => i.options.getUser(n))
+      .filter((u) => u && !u.bot)
+      .map((u) => [u.id, u]),
+  ).values()];
+  if (!usuarios.length) return i.reply({ content: 'Tienes que indicar al menos un usuario (que no sea un bot).', flags: MessageFlags.Ephemeral });
+  const motivo = i.options.getString('motivo')?.trim();
+
+  await i.deferReply({ flags: MessageFlags.Ephemeral });
+  try {
+    const nombre = `caso-${tipo}-${await siguienteNumero(i.guild, tipo)}`;
+    const embed = new EmbedBuilder()
+      .setTitle(`📂 ${nombre}`)
+      .setDescription(`Caso de **${NOMBRE_TIPO[tipo]}** abierto por el staff (${i.user}).\n\n**Implicados:** ${usuarios.join(' ')}\n\nUn miembro del equipo os atenderá en este canal.`)
+      .setColor(0x5865f2)
+      .setFooter({ text: 'Staff: /caso cerrar · /caso unir · /caso expulsar' })
+      .setTimestamp();
+    if (motivo) embed.addFields({ name: '📝 Motivo', value: motivo.slice(0, 1024) });
+    const canal = await crearCanal(
+      i.guild, nombre,
+      `${tiposCaso[clave].etiqueta} · Abierto por <@${usuarios[0].id}> · Creado por ${i.user.tag} · clave:${clave}`,
+      usuarios.map((u) => u.id), { embeds: [embed] },
+    );
+    await i.editReply(`✅ Caso abierto: ${canal}`);
+  } catch (err) {
+    console.error('/abrircaso:', err);
+    await i.editReply(`❌ No he podido abrir el caso.\n**Motivo:** \`${err.message}\``);
+  }
+}
+
 async function todosLosMensajes(canal) {
   const todos = [];
   let antes;
