@@ -73,7 +73,7 @@ function minutosDuracion(texto) {
 // ─── Mensaje del anuncio (igual que la plantilla) ───────────────────────────
 export function textoAnuncio(d) {
   const premio = d.conPremio
-    ? `> 💵 ${d.cantidad} 💵 *(si llegas a acceder al evento sin haber hecho el formulario, no podrás ganar el premio)*`
+    ? `> 💵 ${d.cantidad} 💵`
     : '> Este evento no tiene premio. ¡Se juega por la gloria! ⚔️';
   return [
     `# ${d.nombre}`,
@@ -81,10 +81,10 @@ export function textoAnuncio(d) {
     `> **🖊️Descripción🖊️**: ${d.descripcion.split('\n').join('\n> ')}`,
     '> ',
     '> **📋Características📋**:',
-    `> Min/Max Jugadores: ${d.min}-${d.max} Jugadores`,
-    `> Tiempo de evento (aprox): ${d.duracion}`,
-    `> Fecha: ${d.etiqueta} (${d.fechaTexto})`,
-    `> Hora: ${d.horaTexto} (Hora Española)`,
+    `> - Min/Max Jugadores: ${d.min}-${d.max} Jugadores`,
+    `> - Tiempo de evento (aprox): ${d.duracion}`,
+    `> - Fecha: ${d.etiqueta} (${d.fechaTexto})`,
+    `> - Hora: ${d.horaTexto} (Hora Española)`,
     '> ',
     '> **🏆PREMIO🏆**',
     premio,
