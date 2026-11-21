@@ -43,6 +43,8 @@ export const eventos = {
   minutosParaCompletar: 30, // si no lo termina en este tiempo, el canal se borra
   rolMencionarId: '1558370481948725308', // rol "Miembro" que se menciona al publicar con /crearevento
   ubicacion: 'Minecraft · Tmb Studio', // lugar que aparece en el evento de Discord
+  asistenciaId: '1573814148763222037', // canal donde se apunta quién se conecta durante cada evento
+  margenFinMin: 60, // se sigue apuntando gente hasta X minutos después de la hora de fin del evento
 };
 
 export const casos = {

@@ -7,7 +7,7 @@ const COLOR = 0x57f287;
 const DIAS_MAX = 30; // hilos del foro más antiguos que esto no se revisan
 
 // Lee una inscripción aceptada del registro (o null si no lo es)
-function leerAceptado(m) {
+export function leerAceptado(m) {
   const e = m.embeds[0];
   if (!e?.footer?.text?.startsWith('Aceptado')) return null;
   const campo = (txt) => e.fields.find((f) => f.name.includes(txt))?.value ?? '';
@@ -22,10 +22,11 @@ function leerAceptado(m) {
     evento: e.author?.name?.replace(/^🎮 /, '') ?? 'evento',
     wl: !wl ? '➖' : wl.startsWith('✅') ? '✅' : wl.startsWith('🚫') ? '🚫' : '❌',
     url: m.url,
+    eventoId: e.footer.text.match(/evento:(\d+)/)?.[1],
   };
 }
 
-async function mensajesDelRegistro(reg, desde) {
+export async function mensajesDelRegistro(reg, desde = 0) {
   if (reg.type !== ChannelType.GuildForum) {
     const msgs = await reg.messages.fetch({ limit: 100 });
     return [...msgs.values()].filter((m) => (m.editedTimestamp ?? m.createdTimestamp) >= desde);
