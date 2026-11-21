@@ -35,14 +35,33 @@ function embedPaso(estado, n, titulo, color = COLOR.paso) {
 }
 
 // ─── Mensaje público que publica /formulario ──────────────────────────────────
-export async function publicarFormulario(interaction, eventoId) {
+export async function publicarFormulario(interaction, valor) {
   if (nivelDe(interaction.member) < cfg.nivelPublicar) {
     return interaction.reply({ content: `⛔ Necesitas nivel de autoridad ${cfg.nivelPublicar}.`, flags: MessageFlags.Ephemeral });
   }
-  const evento = await buscarEvento(interaction.guild, eventoId);
-  if (!evento) {
-    return interaction.reply({ content: '❌ No existe ningún evento del servidor con ese ID. Elige uno de la lista al escribir el comando.', flags: MessageFlags.Ephemeral });
+  // Responde enseguida para que Discord no dé "La aplicación no ha respondido"
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  try {
+    await publicar(interaction, valor);
+  } catch (err) {
+    console.error('/formulario:', err);
+    await interaction.editReply(`❌ No he podido publicar el formulario.\n**Motivo:** \`${err.message}\``);
   }
+}
+
+async function publicar(interaction, valor) {
+  // Acepta el ID, el enlace del evento (discord.com/events/servidor/evento) o lo elegido en la lista
+  const eventoId = valor.match(/\d{17,20}/g)?.pop();
+  if (!eventoId) {
+    return interaction.editReply(`❌ \`${valor.slice(0, 100)}\` no es un ID de evento. Elige el evento de la lista que aparece al escribir el comando, o pega el enlace del evento.`);
+  }
+  let evento;
+  try {
+    evento = await interaction.guild.scheduledEvents.fetch(eventoId);
+  } catch (err) {
+    return interaction.editReply(`❌ No encuentro ningún evento de este servidor con el ID \`${eventoId}\`.\n**Respuesta de Discord:** \`${err.message}\`\n\n💡 El ID tiene que ser de un evento creado en **Eventos** del servidor (arriba a la izquierda, debajo del nombre del servidor), no de un mensaje ni de un canal. Lo más fácil es elegirlo de la lista al escribir \`/formulario\`.`);
+  }
+  const canalDestino = interaction.channel ?? await interaction.guild.channels.fetch(interaction.channelId);
 
   const embed = new EmbedBuilder()
     .setAuthor({ name: 'Tmb Studio · Inscripciones', iconURL: interaction.guild.iconURL() ?? undefined })
@@ -60,14 +79,14 @@ export async function publicarFormulario(interaction, eventoId) {
   if (portada) embed.setImage(portada);
   else if (interaction.guild.iconURL()) embed.setThumbnail(interaction.guild.iconURL({ size: 256 }));
 
-  await interaction.channel.send({
+  await canalDestino.send({
     embeds: [embed],
     components: [fila(
       btn(`ev:abrir:${evento.id}`, 'Rellena este formulario para poder acceder al evento', '📝', ButtonStyle.Success),
       new ButtonBuilder().setLabel('Ver evento').setEmoji('📅').setStyle(ButtonStyle.Link).setURL(evento.url),
     )],
   });
-  return interaction.reply({ content: `✅ Formulario de **${evento.name}** publicado.`, flags: MessageFlags.Ephemeral });
+  return interaction.editReply(`✅ Formulario de **${evento.name}** publicado.`);
 }
 
 export async function autocompletarEventos(interaction) {
