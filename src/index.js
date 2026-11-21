@@ -3,6 +3,7 @@ import { readdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { registrar as registrarVerificacion } from './features/verificacion.js';
+import { registrar as registrarMenu } from './features/menu.js';
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 if (!DISCORD_TOKEN || !CLIENT_ID) {
@@ -30,6 +31,7 @@ console.log(`Registrados ${body.length} comandos ${GUILD_ID ? 'en el servidor' :
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 client.commands = commands;
 registrarVerificacion(client);
+registrarMenu(client);
 
 client.once(Events.ClientReady, (c) => console.log(`✅ Conectado como ${c.user.tag}`));
 
