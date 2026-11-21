@@ -2,6 +2,7 @@ import { Client, Collection, Events, GatewayIntentBits, REST, Routes } from 'dis
 import { readdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
+import { registrar as registrarVerificacion } from './features/verificacion.js';
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 if (!DISCORD_TOKEN || !CLIENT_ID) {
@@ -26,8 +27,9 @@ const route = GUILD_ID
 await rest.put(route, { body });
 console.log(`Registrados ${body.length} comandos ${GUILD_ID ? 'en el servidor' : 'globales'}.`);
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 client.commands = commands;
+registrarVerificacion(client);
 
 client.once(Events.ClientReady, (c) => console.log(`✅ Conectado como ${c.user.tag}`));
 
