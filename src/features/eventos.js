@@ -63,9 +63,15 @@ async function publicar(interaction, valor) {
   }
   const canalDestino = interaction.channel ?? await interaction.guild.channels.fetch(interaction.channelId);
 
+  await canalDestino.send(mensajeFormulario(interaction.guild, evento));
+  return interaction.editReply(`✅ Formulario de **${evento.name}** publicado.`);
+}
+
+// Mensaje con el botón del formulario. compacto = sin descripción ni portada (cuando ya hay un anuncio encima)
+export function mensajeFormulario(guild, evento, { compacto = false } = {}) {
   const embed = new EmbedBuilder()
-    .setAuthor({ name: 'Tmb Studio · Inscripciones', iconURL: interaction.guild.iconURL() ?? undefined })
-    .setTitle(`🎮 ${evento.name}`)
+    .setAuthor({ name: 'Tmb Studio · Inscripciones', iconURL: guild.iconURL() ?? undefined })
+    .setTitle(`📋 Formulario de acceso · ${evento.name}`)
     .setDescription(`Las inscripciones para **${evento.name}** ya están abiertas.\n\nRellena el formulario de acceso para que el equipo de Tmb Studio evalúe tu candidatura. **Las plazas son limitadas.**`)
     .addFields(
       { name: '📅 Fecha', value: `${ts(evento.scheduledStartTimestamp)}\n${ts(evento.scheduledStartTimestamp, 'R')}`, inline: true },
@@ -74,19 +80,17 @@ async function publicar(interaction, valor) {
     )
     .setColor(COLOR.marca)
     .setFooter({ text: 'Tmb Studio · Producción de eventos' });
-  if (evento.description) embed.addFields({ name: '📝 Sobre el evento', value: evento.description.slice(0, 1024) });
+  if (!compacto && evento.description) embed.addFields({ name: '📝 Sobre el evento', value: evento.description.slice(0, 1024) });
   const portada = evento.coverImageURL({ size: 1024 });
-  if (portada) embed.setImage(portada);
-  else if (interaction.guild.iconURL()) embed.setThumbnail(interaction.guild.iconURL({ size: 256 }));
-
-  await canalDestino.send({
+  if (!compacto && portada) embed.setImage(portada);
+  else if (guild.iconURL()) embed.setThumbnail(guild.iconURL({ size: 256 }));
+  return {
     embeds: [embed],
     components: [fila(
       btn(`ev:abrir:${evento.id}`, 'Rellena este formulario para poder acceder al evento', '📝', ButtonStyle.Success),
       new ButtonBuilder().setLabel('Ver evento').setEmoji('📅').setStyle(ButtonStyle.Link).setURL(evento.url),
     )],
-  });
-  return interaction.editReply(`✅ Formulario de **${evento.name}** publicado.`);
+  };
 }
 
 export async function autocompletarEventos(interaction) {

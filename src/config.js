@@ -34,6 +34,8 @@ export const eventos = {
   nivelPublicar: 5, // /formulario
   nivelAceptar: 5, // botón "Aceptar usuario"
   minutosParaCompletar: 30, // si no lo termina en este tiempo, el canal se borra
+  rolMencionarId: '1558370481948725308', // rol "Miembro" que se menciona al publicar con /crearevento
+  ubicacion: 'Minecraft · Tmb Studio', // lugar que aparece en el evento de Discord
 };
 
 export const casos = {

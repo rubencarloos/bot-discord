@@ -5,6 +5,7 @@ import path from 'node:path';
 import { registrar as registrarVerificacion } from './features/verificacion.js';
 import { registrar as registrarMenu } from './features/menu.js';
 import { registrarEventos } from './features/eventos.js';
+import { registrarCrearEvento } from './features/crearEvento.js';
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 if (!DISCORD_TOKEN || !CLIENT_ID) {
@@ -37,6 +38,7 @@ client.commands = commands;
 registrarVerificacion(client);
 registrarMenu(client);
 registrarEventos(client);
+registrarCrearEvento(client);
 
 client.once(Events.ClientReady, (c) => console.log(`✅ Conectado como ${c.user.tag}`));
 
