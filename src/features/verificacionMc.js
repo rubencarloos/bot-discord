@@ -1,65 +1,82 @@
-// Verificación de identidad dentro de Minecraft.
-// El bot escucha la consola del servidor (exaroton) en tiempo real:
-//  - Cuando entra un jugador aceptado en un evento desde una IP no verificada, lo pasa a espectador
-//    y le pide /verificacion CODIGO. Tiene X segundos.
-//  - Código correcto: vuelve a donde estaba, en modo aventura, y se guarda su IP para el evento.
-//  - Código incorrecto o sin código a tiempo: ban-ip permanente (nunca se quita solo).
-import { ChannelFlags, ChannelType, EmbedBuilder, Events, ThreadAutoArchiveDuration } from 'discord.js';
+// Conexión con el plugin TmbVerificacion del servidor de Minecraft (carpeta plugin/ de este repo).
+//  - El bot deja los códigos en plugins/TmbVerificacion/codigos.json (exaroton) y manda "tmbverif reload".
+//  - El plugin hace la verificación dentro del juego y escribe en consola líneas "[TMBV] ...".
+//  - El bot lee la consola en directo y avisa en Discord (publicación «🔐 Seguridad»).
+import {
+  ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelFlags, ChannelType, EmbedBuilder, Events, MessageFlags,
+  ThreadAutoArchiveDuration,
+} from 'discord.js';
 import { Client as Exaroton } from 'exaroton';
 import { verificacionMc as cfg } from '../config.js';
-import { jugador, marcarVerificado } from '../datos.js';
+import { alCambiarCodigos, codigosParaPlugin, jugador, marcarVerificado } from '../datos.js';
 import { exarotonConfigurado } from '../exaroton.js';
-import { ts } from '../util.js';
+import { nivelDe, ts } from '../util.js';
 
-const RE_ENTRA = /]: (\w{3,16})\[\/([^\]]+):\d+\] logged in with entity id \d+ at \(\[[^\]]*\]([-\d.]+), ([-\d.]+), ([-\d.]+)\)/;
-const RE_COMANDO = /]: (\w{3,16}) issued server command: \/verificacion\b\s*(\S*)/i;
-const RE_SALE = /]: (\w{3,16}) (?:left the game|lost connection)/;
+const RE_TMBV = /\[TMBV\] (PENDIENTE|VERIFICADO|BAN|RECHAZADO|RESET) (\w{1,16})(?: (\S+))?(?: (.+))?$/;
+const COLOR = { pendiente: 0xfee75c, ok: 0x57f287, ban: 0xed4245, rechazo: 0xe67e22, info: 0x5865f2 };
 
-const pendientes = new Map(); // nametag (minúsculas) -> { nametag, ip, pos, limite, timers }
 let servidor = null;
 let discord = null;
 
-// ─── Utilidades ──────────────────────────────────────────────────────────────
 async function cmd(linea) {
   try {
     await servidor.executeCommand(linea);
+    return true;
   } catch (e) {
     console.error('exaroton comando:', linea.split(' ')[0], e.message);
+    return false;
   }
 }
 
-const texto = (partes) => JSON.stringify(['', ...partes]);
-const decir = (nametag, partes) => cmd(`tellraw ${nametag} ${texto(partes)}`);
-const tiempo = (s) => `${Math.floor(s / 60) ? `${Math.floor(s / 60)} min ` : ''}${s % 60 ? `${s % 60} s` : ''}`.trim();
+// ─── Enviar los códigos al plugin ────────────────────────────────────────────
+let pendienteSync = null;
+export function programarSincronizacion() {
+  if (!servidor) return;
+  clearTimeout(pendienteSync);
+  pendienteSync = setTimeout(sincronizar, 1500);
+}
 
-// Publicación «🔐 Seguridad» en el foro (se crea una vez y se reutiliza)
-let hiloSeguridad = null;
-async function avisar(embed) {
+async function sincronizar() {
   try {
-    if (!hiloSeguridad) {
-      const canal = await discord.channels.fetch(cfg.seguridadId).catch(() => null);
-      if (!canal) return console.error('⚠️ No encuentro el canal de seguridad', cfg.seguridadId);
-      if (canal.type !== ChannelType.GuildForum) {
-        hiloSeguridad = canal;
-      } else {
-        const activos = await canal.threads.fetchActive();
-        const archivados = await canal.threads.fetchArchived({ limit: 50 }).catch(() => ({ threads: new Map() }));
-        hiloSeguridad = [...activos.threads.values(), ...archivados.threads.values()]
-          .find((h) => h.parentId === canal.id && h.name === '🔐 Seguridad' && h.ownerId === discord.user.id);
-        if (!hiloSeguridad) {
-          const obligaEtiqueta = canal.flags?.has(ChannelFlags.RequireTag) && canal.availableTags.length > 0;
-          hiloSeguridad = await canal.threads.create({
-            name: '🔐 Seguridad',
-            autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
-            appliedTags: obligaEtiqueta ? [canal.availableTags[0].id] : [],
-            message: { embeds: [new EmbedBuilder().setTitle('🔐 Registro de seguridad').setColor(0x5865f2)
-              .setDescription('Aquí se apuntan las verificaciones de los jugadores en el servidor de Minecraft y los bloqueos de IP.\n\nLos bloqueos **no se quitan solos**. Para quitar uno, en la consola de exaroton: `pardon-ip IP`.')] },
-          });
-        }
-      }
-    }
-    if (hiloSeguridad.archived) await hiloSeguridad.setArchived(false).catch(() => {});
-    await hiloSeguridad.send({ embeds: [embed.setTimestamp()], allowedMentions: { parse: [] } });
+    await servidor.getFile(cfg.rutaCodigos).putContent(JSON.stringify(codigosParaPlugin(), null, 2));
+    // Si el servidor está encendido, que lo recargue ya (si no, lo leerá al arrancar)
+    await servidor.executeCommand('tmbverif reload').catch(() => {});
+    console.log('🔐 Códigos enviados al plugin del servidor');
+  } catch (e) {
+    console.error('⚠️ No se pudieron enviar los códigos al servidor:', e.message);
+    pendienteSync = setTimeout(sincronizar, 60_000); // reintentar
+  }
+}
+
+// ─── Avisos en Discord (publicación «🔐 Seguridad») ──────────────────────────
+let hiloSeguridad = null;
+async function canalSeguridad() {
+  if (hiloSeguridad) return hiloSeguridad;
+  const canal = await discord.channels.fetch(cfg.seguridadId).catch(() => null);
+  if (!canal) throw new Error(`No encuentro el canal de seguridad ${cfg.seguridadId}`);
+  if (canal.type !== ChannelType.GuildForum) return (hiloSeguridad = canal);
+  const activos = await canal.threads.fetchActive();
+  const archivados = await canal.threads.fetchArchived({ limit: 50 }).catch(() => ({ threads: new Map() }));
+  hiloSeguridad = [...activos.threads.values(), ...archivados.threads.values()]
+    .find((h) => h.parentId === canal.id && h.name === '🔐 Seguridad' && h.ownerId === discord.user.id);
+  if (!hiloSeguridad) {
+    const obligaEtiqueta = canal.flags?.has(ChannelFlags.RequireTag) && canal.availableTags.length > 0;
+    hiloSeguridad = await canal.threads.create({
+      name: '🔐 Seguridad',
+      autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
+      appliedTags: obligaEtiqueta ? [canal.availableTags[0].id] : [],
+      message: { embeds: [new EmbedBuilder().setTitle('🔐 Registro de seguridad').setColor(COLOR.info)
+        .setDescription('Aquí se apuntan las verificaciones de los jugadores en el servidor de Minecraft, las conexiones rechazadas y los bloqueos de IP.\n\nLos bloqueos **no se quitan solos**. Para quitar uno, en la consola de exaroton: `pardon-ip IP`.')] },
+    });
+  }
+  return hiloSeguridad;
+}
+
+async function avisar(embed, components = []) {
+  try {
+    const hilo = await canalSeguridad();
+    if (hilo.archived) await hilo.setArchived(false).catch(() => {});
+    await hilo.send({ embeds: [embed.setTimestamp()], components, allowedMentions: { parse: [] } });
   } catch (e) {
     console.error('Error avisando en seguridad:', e.message);
     hiloSeguridad = null;
@@ -68,134 +85,86 @@ async function avisar(embed) {
 
 const discordDe = (j) => (j?.userId ? `<@${j.userId}>` : '_desconocido_');
 const eventosDe = (j) => Object.values(j?.eventos ?? {}).join(', ') || '—';
+const campoIp = (nombre, ip) => ({ name: nombre, value: `||${ip}||`, inline: true });
 
-// ─── Flujo ───────────────────────────────────────────────────────────────────
-async function alEntrar(nametag, ip, pos) {
+// ─── Líneas del plugin ───────────────────────────────────────────────────────
+export async function procesarLinea(linea) {
+  const m = linea.match(RE_TMBV);
+  if (!m) return;
+  const [, tipo, nametag, ip, extra] = m;
   const j = jugador(nametag);
-  if (!j) return; // no es jugador de ningún evento (staff, etc.): no se toca
-  if (j.ip && j.ip === ip) return; // ya verificado desde esta conexión
+  const base = (color, titulo, texto) => new EmbedBuilder().setColor(color).setTitle(titulo).setDescription(texto);
 
-  const clave = nametag.toLowerCase();
-  const previo = pendientes.get(clave);
-  if (previo) { // volvió a entrar sin verificarse: el plazo sigue corriendo
-    previo.ip = ip;
-    previo.pos = pos;
-  } else {
-    const p = { nametag, ip, pos, limite: Date.now() + cfg.segundos * 1000, timers: [] };
-    p.timers.push(setTimeout(() => banear(clave, 'No introdujo el código a tiempo'), cfg.segundos * 1000));
-    if (cfg.segundos > 45) p.timers.push(setTimeout(() => recordar(clave), (cfg.segundos - 30) * 1000));
-    pendientes.set(clave, p);
+  if (tipo === 'PENDIENTE') {
+    const limite = Number(extra);
+    return avisar(base(COLOR.pendiente, '⏳ Verificación pendiente',
+      `\`${nametag}\` (${discordDe(j)}) ha entrado y tiene que poner su código${limite ? ` antes de las ${ts(limite, 'T')}` : ''}.`)
+      .addFields(campoIp('🌐 IP', ip), { name: '🎮 Eventos', value: eventosDe(j), inline: true }));
   }
-
-  // Esperar a que cargue el jugador antes de mandarle cosas
-  setTimeout(async () => {
-    const p = pendientes.get(clave);
-    if (!p) return;
-    const quedan = Math.max(0, Math.round((p.limite - Date.now()) / 1000));
-    // Para el alias de commands.yml (/verificacion -> /trigger verificacion set CODIGO), sin "Unknown command"
-    await cmd('scoreboard objectives add verificacion trigger');
-    await cmd(`scoreboard players enable ${nametag} verificacion`);
-    await cmd(`gamemode spectator ${nametag}`);
-    await cmd(`title ${nametag} times 10 100 20`);
-    await cmd(`title ${nametag} title ${JSON.stringify({ text: 'Verificación', color: 'gold', bold: true })}`);
-    await cmd(`title ${nametag} subtitle ${JSON.stringify({ text: `/verificacion TUCODIGOAQUI  ·  ${tiempo(quedan)}`, color: 'yellow' })}`);
-    await decir(nametag, [
-      { text: '\n[Tmb Studio] ', color: 'gold', bold: true },
-      { text: 'Escribe el código que recibiste en tu Discord al ser aceptado en el formulario del evento.\n', color: 'white' },
-      { text: 'A continuación pon ', color: 'white' },
-      { text: '/verificacion TUCODIGOAQUI', color: 'yellow', bold: true },
-      { text: `\nTienes ${tiempo(quedan)}. `, color: 'white' },
-      { text: 'Si no lo pones, o lo pones mal, serás baneado por motivos de seguridad.\n', color: 'red', bold: true },
-    ]);
-  }, 1500);
-
-  await avisar(new EmbedBuilder().setColor(0xfee75c).setTitle('⏳ Verificación pendiente')
-    .setDescription(`\`${nametag}\` (${discordDe(j)}) ha entrado${j.ip ? ' desde una **IP distinta** a la verificada' : ''}.\nTiene hasta ${ts(pendientes.get(clave).limite, 'T')} para poner su código.`)
-    .addFields({ name: '🌐 IP', value: `||${ip}||`, inline: true }, { name: '🎮 Eventos', value: eventosDe(j), inline: true }));
-}
-
-async function recordar(clave) {
-  const p = pendientes.get(clave);
-  if (!p) return;
-  await decir(p.nametag, [
-    { text: '[Tmb Studio] ', color: 'gold', bold: true },
-    { text: 'Te quedan 30 segundos para poner ', color: 'red' },
-    { text: '/verificacion TUCODIGOAQUI', color: 'yellow', bold: true },
-    { text: ' o serás baneado.', color: 'red' },
-  ]);
-}
-
-async function alComando(nametag, codigo) {
-  const clave = nametag.toLowerCase();
-  const p = pendientes.get(clave);
-  const j = jugador(nametag);
-  if (!p) {
-    await decir(nametag, [{ text: '[Tmb Studio] ', color: 'gold', bold: true },
-      { text: j ? 'Ya estás verificado. ¡Suerte en el evento!' : 'No necesitas verificarte.', color: 'green' }]);
-    return;
+  if (tipo === 'VERIFICADO') {
+    marcarVerificado(nametag, ip);
+    return avisar(base(COLOR.ok, '✅ Verificado', `\`${nametag}\` (${discordDe(j)}) ha puesto su código correctamente.`)
+      .addFields(campoIp('🌐 IP guardada', ip), { name: '🎮 Eventos', value: eventosDe(j), inline: true }));
   }
-  if (!j) return limpiar(clave);
-  if (codigo !== j.codigo) return banear(clave, codigo ? 'Código incorrecto' : 'Usó /verificacion sin código');
-
-  limpiar(clave);
-  marcarVerificado(nametag, p.ip);
-  if (p.pos) await cmd(`tp ${nametag} ${p.pos.join(' ')}`);
-  await cmd(`gamemode ${cfg.modoJuego} ${nametag}`);
-  await cmd(`title ${nametag} title ${JSON.stringify({ text: 'Verificado', color: 'green', bold: true })}`);
-  await cmd(`title ${nametag} subtitle ${JSON.stringify({ text: '¡Suerte en el evento!', color: 'white' })}`);
-  await decir(nametag, [{ text: '[Tmb Studio] ', color: 'gold', bold: true }, { text: 'Verificado correctamente. ¡Suerte en el evento!', color: 'green' }]);
-  await avisar(new EmbedBuilder().setColor(0x57f287).setTitle('✅ Verificado')
-    .setDescription(`\`${nametag}\` (${discordDe(j)}) ha puesto su código correctamente.`)
-    .addFields({ name: '🌐 IP guardada', value: `||${p.ip}||`, inline: true }, { name: '🎮 Eventos', value: eventosDe(j), inline: true }));
-}
-
-function limpiar(clave) {
-  const p = pendientes.get(clave);
-  p?.timers.forEach(clearTimeout);
-  pendientes.delete(clave);
-}
-
-async function banear(clave, motivo) {
-  const p = pendientes.get(clave);
-  if (!p) return;
-  limpiar(clave);
-  const j = jugador(p.nametag);
-  // ban-ip expulsa al momento a cualquiera conectado desde esa IP
-  await cmd(`ban-ip ${p.ip} Tmb Studio - Bloqueado por seguridad: verificación fallida`);
-  await avisar(new EmbedBuilder().setColor(0xed4245).setTitle('⛔ IP bloqueada')
-    .setDescription(`Alguien intentó entrar como \`${p.nametag}\` (${discordDe(j)}) y **no pasó la verificación**.`)
-    .addFields(
-      { name: '📝 Motivo', value: motivo, inline: true },
-      { name: '🌐 IP bloqueada', value: `||${p.ip}||`, inline: true },
-      { name: '🎮 Eventos', value: eventosDe(j), inline: true },
-      { name: '↩️ Para quitar el bloqueo', value: `En la consola de exaroton: \`pardon-ip ${p.ip}\`` },
-    ));
-}
-
-// ─── Lectura de la consola ───────────────────────────────────────────────────
-export function procesarLinea(linea) {
-  let m = linea.match(RE_ENTRA);
-  if (m) return alEntrar(m[1], m[2], [m[3], m[4], m[5]]);
-  m = linea.match(RE_COMANDO);
-  if (m) return alComando(m[1], m[2]);
-  m = linea.match(RE_SALE);
-  // Si sale sin verificarse, el plazo sigue corriendo: si no vuelve y lo pone a tiempo, ban-ip
-  if (m && cfg.banSiSale === false) limpiar(m[1].toLowerCase());
+  if (tipo === 'BAN') {
+    return avisar(base(COLOR.ban, '⛔ IP bloqueada', `Alguien intentó entrar como \`${nametag}\` (${discordDe(j)}) y **no pasó la verificación**.`)
+      .addFields(
+        { name: '📝 Motivo', value: extra || '—', inline: true },
+        campoIp('🌐 IP bloqueada', ip),
+        { name: '🎮 Eventos', value: eventosDe(j), inline: true },
+        { name: '↩️ Para quitar el bloqueo', value: `En la consola de exaroton: \`pardon-ip ${ip}\`` },
+      ));
+  }
+  if (tipo === 'RECHAZADO') {
+    if (extra === 'duplicado') {
+      return avisar(base(COLOR.rechazo, '🚷 Conexión rechazada',
+        `Alguien intentó entrar como \`${nametag}\` (${discordDe(j)}) **mientras ya estaba conectado**. No se le ha dejado entrar y el jugador sigue en la partida.`)
+        .addFields(campoIp('🌐 IP del intento', ip)));
+    }
+    const boton = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(`vmc:reset:${nametag}`).setLabel('Permitir nueva IP').setEmoji('🔓').setStyle(ButtonStyle.Secondary),
+    );
+    return avisar(base(COLOR.rechazo, '🚷 Conexión rechazada',
+      `Alguien intentó entrar como \`${nametag}\` (${discordDe(j)}) **desde una conexión distinta** a la verificada. No se le ha dejado entrar.\n\nSi es el jugador de verdad (por ejemplo, le ha cambiado la IP), pulsa **Permitir nueva IP**: podrá entrar y tendrá que volver a poner su código.`)
+      .addFields(campoIp('🌐 IP del intento', ip), campoIp('🔐 IP verificada', j?.ip ?? '—')), [boton]);
+  }
+  if (tipo === 'RESET') marcarVerificado(nametag, null);
   return null;
 }
 
+async function botonReset(i, nametag) {
+  if (nivelDe(i.member) < cfg.nivelDesbloquear) {
+    return i.reply({ content: `⛔ Solo el nivel de autoridad ${cfg.nivelDesbloquear} o superior puede hacer esto.`, flags: MessageFlags.Ephemeral });
+  }
+  await i.deferUpdate();
+  const ok = servidor && await cmd(`tmbverif reset ${nametag}`);
+  if (!ok) return i.followUp({ content: '❌ No he podido hablar con el servidor de Minecraft (¿está apagado?). Prueba más tarde.', flags: MessageFlags.Ephemeral });
+  marcarVerificado(nametag, null);
+  const embed = EmbedBuilder.from(i.message.embeds[0]).setColor(COLOR.ok)
+    .addFields({ name: '🔓 Desbloqueado', value: `${i.user} ha permitido una nueva conexión ${ts(Date.now(), 'R')}. Tendrá que volver a poner su código.` });
+  return i.editReply({ embeds: [embed], components: [] });
+}
+
 export function registrarVerificacionMc(client) {
+  client.on(Events.InteractionCreate, async (i) => {
+    if (!i.isButton() || !i.customId.startsWith('vmc:reset:')) return;
+    try {
+      await botonReset(i, i.customId.split(':')[2]);
+    } catch (e) {
+      console.error('Botón verificación:', e);
+    }
+  });
+
   client.once(Events.ClientReady, () => {
     discord = client;
     if (!exarotonConfigurado()) return console.warn('⚠️ exaroton sin configurar: verificación en Minecraft desactivada');
     servidor = new Exaroton(process.env.EXAROTON_TOKEN).server(process.env.EXAROTON_SERVER_ID);
-    servidor.on('console:line', (d) => Promise.resolve(procesarLinea(d.line)).catch((e) => console.error('Verificación MC:', e)));
+    servidor.on('console:line', (d) => procesarLinea(d.line).catch((e) => console.error('Verificación MC:', e)));
     servidor.subscribe('console');
-    console.log('🔐 Verificación en Minecraft activa (escuchando la consola de exaroton)');
+    alCambiarCodigos.add(programarSincronizacion);
+    programarSincronizacion();
+    console.log('🔐 Verificación en Minecraft activa (plugin TmbVerificacion)');
   });
 }
 
-export const _test = {
-  set: (srv, cli) => { servidor = srv; discord = cli; },
-  pendientes,
-};
+export const _test = { set: (srv, cli) => { servidor = srv; discord = cli; }, sincronizar };

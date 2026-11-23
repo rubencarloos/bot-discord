@@ -89,8 +89,9 @@ export const tiposCaso = {
 
 // Verificación en Minecraft con el código que se envía al aceptar el formulario del evento
 export const verificacionMc = {
-  segundos: 90, // tiempo para poner /verificacion CODIGO antes del ban-ip
-  modoJuego: 'adventure', // modo al verificarse (mientras tanto, espectador)
-  banSiSale: true, // si sale sin verificarse y no vuelve a tiempo para poner el código, también ban-ip
+  // Lo hace el plugin TmbVerificacion del servidor (su config.yml). Este valor solo se usa para el texto del MD:
+  segundos: 90, // tiempo para poner /verificacion CODIGO antes del ban-ip (igual que en el config.yml del plugin)
+  rutaCodigos: 'plugins/TmbVerificacion/codigos.json', // archivo del servidor donde el bot deja los códigos
+  nivelDesbloquear: 3, // botón «Permitir nueva IP» cuando un jugador verificado entra desde otra conexión
   seguridadId: '1573814148763222037', // foro donde se avisa de verificaciones y baneos (publicación «🔐 Seguridad»)
 };

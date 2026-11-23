@@ -1,0 +1,22 @@
+name: TmbVerificacion
+version: '${project.version}'
+main: es.tmbstudio.verificacion.TmbVerificacion
+api-version: '1.21'
+description: Verificación de identidad de los jugadores de los eventos de Tmb Studio (conectado con el bot de Discord)
+author: Tmb Studio
+
+commands:
+  verificacion:
+    description: Verifica tu identidad con el código que recibiste en Discord
+    usage: /verificacion <código>
+    permission: tmbverificacion.usar
+  tmbverif:
+    description: Administración de la verificación (reload, reset, estado)
+    usage: /tmbverif <reload|reset <nametag>|estado>
+    permission: tmbverificacion.admin
+
+permissions:
+  tmbverificacion.usar:
+    default: true
+  tmbverificacion.admin:
+    default: op

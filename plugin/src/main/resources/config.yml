@@ -1,0 +1,46 @@
+# TmbVerificacion · configuración
+# Los códigos los envía el bot de Discord al archivo codigos.json de esta carpeta. No lo edites a mano.
+
+# Segundos que tiene el jugador para poner /verificacion CODIGO antes del ban-ip
+segundos: 90
+
+# Modo de juego al verificarse (mientras tanto, espectador): ADVENTURE, SURVIVAL, CREATIVE
+modo-juego: ADVENTURE
+
+# Si sale sin verificarse, el plazo sigue corriendo y si no vuelve a tiempo, ban-ip
+ban-si-sale: true
+
+# Una vez verificado, su nametag solo puede entrar desde esa IP (el staff puede permitir otra desde Discord)
+solo-ip-verificada: true
+
+# Si alguien intenta entrar con el nombre de un jugador que ya está conectado, se rechaza al nuevo
+# (en vez de echar al que está jugando)
+bloquear-duplicados: true
+
+# Mensajes (formato MiniMessage: https://docs.advntr.dev/minimessage/format.html)
+# Variables: <tiempo>
+mensajes:
+  pedir-codigo: |-
+
+    <gold><bold>[Tmb Studio]</bold></gold> <white>Escribe el código que recibiste en tu Discord al ser aceptado en el formulario del evento.</white>
+    <white>A continuación pon</white> <yellow><bold>/verificacion TUCODIGOAQUI</bold></yellow>
+    <white>Tienes <tiempo>.</white> <red><bold>Si no lo pones, o lo pones mal, serás baneado por motivos de seguridad.</bold></red>
+  recordatorio: '<gold><bold>[Tmb Studio]</bold></gold> <red>Te quedan 30 segundos para poner</red> <yellow><bold>/verificacion TUCODIGOAQUI</bold></yellow> <red>o serás baneado.</red>'
+  titulo: '<gold><bold>Verificación</bold></gold>'
+  subtitulo: '<yellow>/verificacion TUCODIGOAQUI · <tiempo></yellow>'
+  verificado: '<gold><bold>[Tmb Studio]</bold></gold> <green>Verificado correctamente. ¡Suerte en el evento!</green>'
+  titulo-verificado: '<green><bold>Verificado</bold></green>'
+  subtitulo-verificado: '<white>¡Suerte en el evento!</white>'
+  ya-verificado: '<gold><bold>[Tmb Studio]</bold></gold> <green>Ya estás verificado. ¡Suerte en el evento!</green>'
+  no-necesitas: '<gold><bold>[Tmb Studio]</bold></gold> <gray>No necesitas verificarte.</gray>'
+  uso: '<gold><bold>[Tmb Studio]</bold></gold> <yellow>Uso: /verificacion TUCODIGOAQUI</yellow>'
+  rechazo-duplicado: |-
+    <red><bold>Tmb Studio</bold></red>
+
+    <white>Ya hay un jugador conectado con este nombre.</white>
+  rechazo-ip: |-
+    <red><bold>Tmb Studio · Seguridad</bold></red>
+
+    <white>Esta cuenta ya está verificada desde otra conexión.</white>
+    <gray>Si eres tú, contacta con el staff en Discord.</gray>
+  motivo-ban: 'Tmb Studio - Bloqueado por seguridad: verificación fallida'

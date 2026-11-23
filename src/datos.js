@@ -14,10 +14,21 @@ try {
   datos = JSON.parse(readFileSync(ARCHIVO, 'utf8'));
 } catch { /* primera vez */ }
 
-function guardar() {
+// Funciones que se avisan cuando cambian los códigos (para mandarlos al plugin del servidor)
+export const alCambiarCodigos = new Set();
+
+function guardar(cambianCodigos = true) {
   mkdirSync(DIR, { recursive: true });
   writeFileSync(`${ARCHIVO}.tmp`, JSON.stringify(datos, null, 2));
   renameSync(`${ARCHIVO}.tmp`, ARCHIVO);
+  if (cambianCodigos) for (const f of alCambiarCodigos) f();
+}
+
+// Lo que se manda al plugin: nametag -> código
+export function codigosParaPlugin() {
+  const jugadores = {};
+  for (const [clave, j] of Object.entries(datos.jugadores)) jugadores[clave] = { nametag: j.nametag, codigo: j.codigo };
+  return { generado: new Date().toISOString(), jugadores };
 }
 
 export const jugador = (nametag) => datos.jugadores[nametag.toLowerCase()] ?? null;
@@ -40,8 +51,8 @@ export function marcarVerificado(nametag, ip) {
   const j = jugador(nametag);
   if (!j) return;
   j.ip = ip;
-  j.verificadoEn = Date.now();
-  guardar();
+  j.verificadoEn = ip ? Date.now() : null;
+  guardar(false);
 }
 
 // Eventos con formularios aceptados guardados: [{ id, nombre, jugadores }]
