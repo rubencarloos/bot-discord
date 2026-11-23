@@ -86,3 +86,11 @@ export const tiposCaso = {
   'staff-ayuda': { tipo: 'ayuda', etiqueta: 'Ayuda (abierto por el staff)' },
   'staff-postu': { tipo: 'postu', etiqueta: 'Postulación Estudio (abierto por el staff)' },
 };
+
+// Verificación en Minecraft con el código que se envía al aceptar el formulario del evento
+export const verificacionMc = {
+  segundos: 90, // tiempo para poner /verificacion CODIGO antes del ban-ip
+  modoJuego: 'adventure', // modo al verificarse (mientras tanto, espectador)
+  banSiSale: true, // si sale sin verificarse y no vuelve a tiempo para poner el código, también ban-ip
+  seguridadId: '1573814148763222037', // foro donde se avisa de verificaciones y baneos (publicación «🔐 Seguridad»)
+};

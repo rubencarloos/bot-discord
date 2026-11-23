@@ -2,7 +2,8 @@ import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelFlags, ChannelType, EmbedBuilder, Events, MessageFlags,
   ModalBuilder, PermissionFlagsBits as P, StringSelectMenuBuilder,
 } from 'discord.js';
-import { eventos as cfg } from '../config.js';
+import { eventos as cfg, verificacionMc as verifCfg } from '../config.js';
+import { darAlta } from '../datos.js';
 import { normativaEvento, politicaPremios } from '../textos.js';
 import { nivelDe, ts } from '../util.js';
 import { anadirWhitelist, exarotonConfigurado, quitarWhitelist } from '../exaroton.js';
@@ -297,6 +298,19 @@ async function aceptarUsuario(i, eventoId, userId) {
     .setColor(COLOR.ok)
     .setFooter({ text: `Tmb Studio · ${i.guild.name}` })
     .setTimestamp();
+  const nametag = nametagDe(i.message);
+  const alta = nametag ? darAlta({ nametag, userId, eventoId, eventoNombre: nombre }) : null;
+  if (alta) {
+    const min = Math.floor(verifCfg.segundos / 60);
+    const seg = verifCfg.segundos % 60;
+    const plazo = `${min ? `${min} minuto${min === 1 ? '' : 's'}` : ''}${min && seg ? ' y ' : ''}${seg ? `${seg} segundos` : ''}`;
+    dm.addFields(
+      { name: '🔐 Código de verificación', value: `# \`${alta.codigo}\`\n**¡No compartas este código con nadie!**` },
+      { name: '❓ ¿Para qué sirve?', value: `> Por la seguridad de nuestros usuarios, este código sirve para que **solo tú** puedas acceder al evento con tu nametag \`${alta.nametag}\` y evitar que otra persona entre haciéndose pasar por ti.` },
+      { name: '🎮 Cómo usarlo', value: `> Al entrar al servidor escribe en el chat:\n> \`/verificacion ${alta.codigo}\`\n> Tendrás **${plazo}** para hacerlo.` },
+      { name: '⚠️ Importante', value: '> Si **no pones el código** o lo pones **mal**, se bloqueará tu conexión al servidor de forma **permanente** por motivos de seguridad. Cópialo con cuidado.' },
+    );
+  }
   const portada = evento?.coverImageURL({ size: 1024 });
   if (portada) dm.setImage(portada);
   else if (i.guild.iconURL()) dm.setThumbnail(i.guild.iconURL({ size: 256 }));
@@ -309,7 +323,6 @@ async function aceptarUsuario(i, eventoId, userId) {
     }).then(() => true).catch(() => false);
   }
 
-  const nametag = nametagDe(i.message);
   const wl = await cambiarWhitelist(nametag, true);
 
   const actualizado = EmbedBuilder.from(i.message.embeds[0])
@@ -325,7 +338,7 @@ async function aceptarUsuario(i, eventoId, userId) {
     components: [botonesAceptado(i.user.username, eventoId, userId, wl.ok)],
   });
   if (!enviado) {
-    await i.followUp({ content: `⚠️ Usuario aceptado, pero no he podido enviarle el mensaje privado${usuario ? ` a ${usuario}` : ''}. Avísale tú.`, flags: MessageFlags.Ephemeral });
+    await i.followUp({ content: `⚠️ Usuario aceptado, pero no he podido enviarle el mensaje privado${usuario ? ` a ${usuario}` : ''}. Avísale tú${alta ? ` y pásale **en privado** su código de verificación: \`${alta.codigo}\`` : ''}.`, flags: MessageFlags.Ephemeral });
   }
 }
 

@@ -22,6 +22,6 @@ async function llamar(metodo, ruta, cuerpo) {
 }
 
 export const anadirWhitelist = (nametag) => llamar('PUT', '/playerlists/whitelist/', { entries: [nametag] });
-export const quitarWhitelist = (nametag) => llamar('DELETE', '/playerlists/whitelist/', { entries: [nametag] });
+export const quitarWhitelist = (nametag) => llamar('DELETE', '/playerlists/whitelist/', { entries: [nametag].flat() });
 export const verWhitelist = () => llamar('GET', '/playerlists/whitelist/');
 export const infoServidor = () => llamar('GET', '');

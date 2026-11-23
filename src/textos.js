@@ -46,6 +46,7 @@ export const normativaEvento = {
     ['🎮 Juego limpio', 'Jugar limpio **sin clientes modificados, macros ni ventajas externas**, comprometiéndote a no aprovecharte de bugs, fallos del mapa o mecánicas rotas (debiendo **reportarlos al instante** si los encuentras), respetando las dinámicas de cada ronda y evitando cualquier tipo de **ghosting o ayuda externa** una vez eliminado.'],
     ['🎙️ Grabación', 'Para garantizar una buena grabación, está prohibido **saturar el micrófono**, reproducir audios externos, interrumpir a los administradores cuando explican las normas o usar lenguaje ofensivo y no apto.'],
     ['⏰ Compromiso', 'Se exige **puntualidad** y pleno respeto a las decisiones que tome la administración.'],
+    ['🔐 Seguridad', 'Para proteger a nuestros usuarios y evitar **multicuentas** y **robos de identidad**, al ser aceptado recibirás un **código de verificación** que deberás introducir al entrar al servidor. Mientras dure el evento guardaremos de forma privada la conexión (IP) desde la que te verifiques, y solo la usaremos por motivos de seguridad. Cualquier intento de entrar con tu nametag sin el código correcto será **bloqueado permanentemente**.'],
     ['⚠️ Consecuencias', 'Si incumples cualquiera de estas normas, asumes la **descalificación inmediata**, la **pérdida total de cualquier premio** obtenido y la **expulsión de futuros eventos**.'],
   ],
 };
