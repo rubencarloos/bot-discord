@@ -92,6 +92,9 @@ async function alEntrar(nametag, ip, pos) {
     const p = pendientes.get(clave);
     if (!p) return;
     const quedan = Math.max(0, Math.round((p.limite - Date.now()) / 1000));
+    // Para el alias de commands.yml (/verificacion -> /trigger verificacion set CODIGO), sin "Unknown command"
+    await cmd('scoreboard objectives add verificacion trigger');
+    await cmd(`scoreboard players enable ${nametag} verificacion`);
     await cmd(`gamemode spectator ${nametag}`);
     await cmd(`title ${nametag} times 10 100 20`);
     await cmd(`title ${nametag} title ${JSON.stringify({ text: 'Verificación', color: 'gold', bold: true })}`);

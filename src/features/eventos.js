@@ -4,12 +4,12 @@ import {
 } from 'discord.js';
 import { eventos as cfg, verificacionMc as verifCfg } from '../config.js';
 import { darAlta } from '../datos.js';
-import { normativaEvento, politicaPremios } from '../textos.js';
+import { normativaEvento, pasoMensajesPrivados as md, politicaPremios } from '../textos.js';
 import { nivelDe, ts } from '../util.js';
 import { anadirWhitelist, exarotonConfigurado, quitarWhitelist } from '../exaroton.js';
 
 const COLOR = { marca: 0x5865f2, paso: 0x3ba55c, aviso: 0xfee75c, peligro: 0xed4245, oro: 0xf1c40f, ok: 0x57f287 };
-const TOTAL_PASOS = 4;
+const TOTAL_PASOS = 5;
 const NAMETAG_VALIDO = /^[A-Za-z0-9_]{3,16}$/;
 
 // Formularios en curso: id del canal privado -> estado
@@ -159,7 +159,7 @@ async function abrirFormulario(i, eventoId) {
     .addFields(
       { name: '📅 Evento', value: `${ts(evento.scheduledStartTimestamp)}`, inline: true },
       { name: '⏳ Tiempo límite', value: `${cfg.minutosParaCompletar} minutos`, inline: true },
-      { name: '🧾 Qué te pediremos', value: '> ⛏️ Tu nametag de Minecraft\n> 🎙️ Requisitos técnicos\n> 📜 Aceptar la normativa del evento\n> 🏆 Aceptar la política de premios' },
+      { name: '🧾 Qué te pediremos', value: '> ⛏️ Tu nametag de Minecraft\n> 🎙️ Requisitos técnicos\n> 📜 Aceptar la normativa del evento\n> 🏆 Aceptar la política de premios\n> 📩 Comprobar que te llegan los mensajes privados' },
       { name: '🔒 Privacidad', value: '> Este canal es **privado**: solo lo ves tú y el bot. Se eliminará automáticamente al terminar.' },
     )
     .setThumbnail(i.user.displayAvatarURL({ size: 256 }))
@@ -221,6 +221,22 @@ async function pasoPremios(canal, estado) {
     embeds: [embed],
     components: [fila(btn('evf:premios', 'Acepto las condiciones de participación y entrega del premio.', '🏆', ButtonStyle.Success))],
   });
+}
+
+async function pasoMensajesPrivados(canal, estado) {
+  estado.paso = 'md';
+  const embed = embedPaso(estado, 5, md.titulo, COLOR.aviso)
+    .setDescription(md.texto)
+    .addFields({ name: '🔓 Cómo abrirlos', value: md.comoActivar });
+  await canal.send({ embeds: [embed], components: [fila(btn('evf:md', md.boton.slice(0, 80), '📩', ButtonStyle.Success))] });
+}
+
+async function comprobarMd(i, estado) {
+  await i.deferUpdate();
+  const ok = await i.user.send(md.prueba).then(() => true).catch(() => false);
+  if (!ok) return i.followUp({ content: md.error, flags: MessageFlags.Ephemeral });
+  await i.editReply({ components: hecho('Mensajes privados comprobados', '📩') });
+  return finalizar(i.channel, estado, i.user);
 }
 
 async function finalizar(canal, estado, usuario) {
@@ -506,8 +522,9 @@ export function registrarEventos(client) {
       }
       if (accion === 'premios' && estado.paso === 'premios') {
         await i.update({ components: hecho('Condiciones aceptadas', '🏆') });
-        return await finalizar(i.channel, estado, i.user);
+        return await pasoMensajesPrivados(i.channel, estado);
       }
+      if (accion === 'md' && estado.paso === 'md') return await comprobarMd(i, estado);
       // Botón de un paso ya superado
       if (i.isRepliable() && !i.replied) await i.deferUpdate().catch(() => {});
     } catch (err) {
@@ -518,3 +535,5 @@ export function registrarEventos(client) {
     }
   });
 }
+
+export const _test = { formularios };

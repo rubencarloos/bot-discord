@@ -55,3 +55,13 @@ export const politicaPremios = {
   titulo: '🏆 Política de Premios',
   texto: 'Al marcar esta casilla, confirmas ser plenamente consciente de que participas en este evento compitiendo por un **premio real**, el cual se entregará **única y exclusivamente en formato de tarjeta regalo digital** (sin posibilidad de canje por dinero en efectivo ni transferencias directas) al **ganador oficial** una vez validada la grabación.\n\nEl incumplimiento de cualquiera de las normas del evento, el abandono injustificado o cualquier conducta antideportiva detectada durante o después de la partida supondrá la **anulación automática del premio** sin derecho a reclamación.',
 };
+
+// Último paso del formulario de eventos: comprobar que el bot puede enviarle mensajes privados
+export const pasoMensajesPrivados = {
+  titulo: '📩 Mensajes privados',
+  texto: '**ANTES DE PULSAR EL BOTÓN, ASEGÚRATE DE QUE TE PUEDAN LLEGAR LOS MENSAJES POR PRIVADO.**\n\nSi eres aceptado, el bot te enviará por privado la confirmación y tu **código de verificación** para entrar al servidor. Si tienes los mensajes directos cerrados, **no te llegará** y no podrás entrar al evento.\n\nAl pulsar el botón te enviaremos un **mensaje de prueba** para comprobarlo.',
+  comoActivar: '> 1️⃣ Haz clic derecho (o mantén pulsado) sobre el **icono del servidor**\n> 2️⃣ **Ajustes de privacidad**\n> 3️⃣ Activa **Mensajes directos**',
+  boton: 'Mis mensajes privados están abiertos',
+  prueba: '👋 ¡Hola! Esto es un **mensaje de prueba** de Tmb Studio. Si lo estás leyendo, tus mensajes privados están abiertos y te llegará el aviso si eres aceptado. Ya puedes volver al formulario.',
+  error: '❌ **No he podido enviarte el mensaje de prueba.** Tus mensajes privados están cerrados.\n\nPara abrirlos:\n1️⃣ Clic derecho (o mantén pulsado) sobre el **icono del servidor**\n2️⃣ **Ajustes de privacidad**\n3️⃣ Activa **Mensajes directos**\n\nDespués vuelve a pulsar el botón.',
+};
