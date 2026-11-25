@@ -9,13 +9,16 @@ import { nivelDe, ts } from '../util.js';
 import { anadirWhitelist, exarotonConfigurado, quitarWhitelist } from '../exaroton.js';
 
 const COLOR = { marca: 0x5865f2, paso: 0x3ba55c, aviso: 0xfee75c, peligro: 0xed4245, oro: 0xf1c40f, ok: 0x57f287 };
-const TOTAL_PASOS = 5;
 const NAMETAG_VALIDO = /^[A-Za-z0-9_]{3,16}$/;
 
 // Formularios en curso: id del canal privado -> estado
 const formularios = new Map();
 
-const progreso = (n) => `${'🟩'.repeat(n)}${'⬛'.repeat(TOTAL_PASOS - n)}  ·  Paso ${n} de ${TOTAL_PASOS}`;
+// 5 pasos, o 4 si el evento no tiene premio (se salta la política de premios)
+const totalPasos = (estado) => (estado.conPremio ? 5 : 4);
+const progreso = (n, total) => `${'🟩'.repeat(n)}${'⬛'.repeat(total - n)}  ·  Paso ${n} de ${total}`;
+// Los eventos creados con /crearevento sin premio llevan «🏆 Sin premio» en la descripción
+const tienePremio = (evento) => !evento?.description?.includes('🏆 Sin premio');
 const btn = (id, label, emoji, estilo = ButtonStyle.Primary) =>
   new ButtonBuilder().setCustomId(id).setLabel(label).setEmoji(emoji).setStyle(estilo);
 const fila = (...b) => new ActionRowBuilder().addComponents(b);
@@ -33,7 +36,7 @@ function embedPaso(estado, n, titulo, color = COLOR.paso) {
     .setAuthor({ name: `📋 Formulario · ${estado.eventoNombre}` })
     .setTitle(titulo)
     .setColor(color)
-    .setFooter({ text: progreso(n) });
+    .setFooter({ text: progreso(n, totalPasos(estado)) });
 }
 
 // ─── Mensaje público que publica /formulario ──────────────────────────────────
@@ -147,7 +150,7 @@ async function abrirFormulario(i, eventoId) {
 
   const estado = {
     userId: i.user.id, eventoId: evento.id, eventoNombre: evento.name, eventoFecha: evento.scheduledStartTimestamp,
-    paso: 'bienvenida', nametag: null, microfono: null, mods: null, timer: null,
+    paso: 'bienvenida', nametag: null, microfono: null, mods: null, timer: null, conPremio: tienePremio(evento),
   };
   formularios.set(canal.id, estado);
   reiniciarCaducidad(canal, estado);
@@ -159,7 +162,7 @@ async function abrirFormulario(i, eventoId) {
     .addFields(
       { name: '📅 Evento', value: `${ts(evento.scheduledStartTimestamp)}`, inline: true },
       { name: '⏳ Tiempo límite', value: `${cfg.minutosParaCompletar} minutos`, inline: true },
-      { name: '🧾 Qué te pediremos', value: '> ⛏️ Tu nametag de Minecraft\n> 🎙️ Requisitos técnicos\n> 📜 Aceptar la normativa del evento\n> 🏆 Aceptar la política de premios\n> 📩 Comprobar que te llegan los mensajes privados' },
+      { name: '🧾 Qué te pediremos', value: `> ⛏️ Tu nametag de Minecraft\n> 🎙️ Requisitos técnicos\n> 📜 Aceptar la normativa del evento\n${estado.conPremio ? '> 🏆 Aceptar la política de premios\n' : ''}> 📩 Comprobar que te llegan los mensajes privados` },
       { name: '🔒 Privacidad', value: '> Este canal es **privado**: solo lo ves tú y el bot. Se eliminará automáticamente al terminar.' },
     )
     .setThumbnail(i.user.displayAvatarURL({ size: 256 }))
@@ -225,7 +228,7 @@ async function pasoPremios(canal, estado) {
 
 async function pasoMensajesPrivados(canal, estado) {
   estado.paso = 'md';
-  const embed = embedPaso(estado, 5, md.titulo, COLOR.aviso)
+  const embed = embedPaso(estado, totalPasos(estado), md.titulo, COLOR.aviso)
     .setDescription(md.texto)
     .addFields({ name: '🔓 Cómo abrirlos', value: md.comoActivar });
   await canal.send({ embeds: [embed], components: [fila(btn('evf:md', md.boton.slice(0, 80), '📩', ButtonStyle.Success))] });
@@ -518,6 +521,7 @@ export function registrarEventos(client) {
       }
       if (accion === 'normas' && estado.paso === 'normativa') {
         await i.update({ components: hecho('Normativa aceptada', '📜') });
+        if (!estado.conPremio) return await pasoMensajesPrivados(i.channel, estado);
         return await pasoPremios(i.channel, estado);
       }
       if (accion === 'premios' && estado.paso === 'premios') {
