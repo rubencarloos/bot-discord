@@ -93,5 +93,9 @@ export const verificacionMc = {
   segundos: 90, // tiempo para poner /verificacion CODIGO antes del ban-ip (igual que en el config.yml del plugin)
   rutaCodigos: 'plugins/TmbVerificacion/codigos.json', // archivo del servidor donde el bot deja los códigos
   nivelDesbloquear: 3, // botón «Permitir nueva IP» cuando un jugador verificado entra desde otra conexión
+  nivelMiCodigo: 1, // /micodigo (código fijo del staff)
+  // Nametags del staff que nadie puede usar en los formularios aunque su dueño todavía no haya usado /micodigo
+  // (los que usan /micodigo quedan protegidos solos). Ejemplo: ['NombreAdmin', 'OtroStaff']
+  nametagsProtegidos: [],
   seguridadId: '1573814148763222037', // foro donde se avisa de verificaciones y baneos (publicación «🔐 Seguridad»)
 };

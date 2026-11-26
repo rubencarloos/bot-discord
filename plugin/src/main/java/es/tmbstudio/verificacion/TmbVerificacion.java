@@ -17,7 +17,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import io.papermc.paper.event.player.AsyncChatEvent;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -56,7 +58,7 @@ public final class TmbVerificacion extends JavaPlugin implements Listener {
     /** jugadores conectados (minúsculas), para rechazar duplicados desde el hilo asíncrono */
     private final Set<String> conectados = ConcurrentHashMap.newKeySet();
     /** jugadores pendientes de poner el código */
-    private final Map<String, Pendiente> pendientes = new HashMap<>();
+    private final Map<String, Pendiente> pendientes = new ConcurrentHashMap<>();
 
     private File archivoCodigos;
     private File archivoIps;
@@ -83,6 +85,9 @@ public final class TmbVerificacion extends JavaPlugin implements Listener {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        // Añade al config.yml del servidor las opciones nuevas de versiones posteriores
+        getConfig().options().copyDefaults(true);
+        saveConfig();
         getDataFolder().mkdirs();
         archivoCodigos = new File(getDataFolder(), "codigos.json");
         archivoIps = new File(getDataFolder(), "ips.json");
@@ -257,6 +262,23 @@ public final class TmbVerificacion extends JavaPlugin implements Listener {
         p.showTitle(Title.title(msg("titulo", tiempo(quedan)), msg("subtitulo", tiempo(quedan)),
                 Title.Times.times(Duration.ofMillis(500), Duration.ofSeconds(6), Duration.ofSeconds(1))));
         p.sendMessage(msg("pedir-codigo", tiempo(quedan)));
+    }
+
+    // ─── Sin verificar: ni comandos (aunque sea OP) ni chat ─────────────────
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void alComando(PlayerCommandPreprocessEvent e) {
+        if (!pendientes.containsKey(clave(e.getPlayer().getName()))) return;
+        String comando = e.getMessage().toLowerCase(Locale.ROOT);
+        if (comando.equals("/verificacion") || comando.startsWith("/verificacion ")) return;
+        e.setCancelled(true);
+        e.getPlayer().sendMessage(msg("bloqueado", null));
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void alChatear(AsyncChatEvent e) {
+        if (!pendientes.containsKey(clave(e.getPlayer().getName()))) return;
+        e.setCancelled(true);
+        e.getPlayer().sendMessage(msg("bloqueado", null));
     }
 
     @EventHandler

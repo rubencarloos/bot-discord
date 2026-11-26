@@ -34,6 +34,7 @@ mensajes:
   ya-verificado: '<gold><bold>[Tmb Studio]</bold></gold> <green>Ya estás verificado. ¡Suerte en el evento!</green>'
   no-necesitas: '<gold><bold>[Tmb Studio]</bold></gold> <gray>No necesitas verificarte.</gray>'
   uso: '<gold><bold>[Tmb Studio]</bold></gold> <yellow>Uso: /verificacion TUCODIGOAQUI</yellow>'
+  bloqueado: '<gold><bold>[Tmb Studio]</bold></gold> <red>Primero tienes que verificarte con</red> <yellow><bold>/verificacion TUCODIGOAQUI</bold></yellow>'
   rechazo-duplicado: |-
     <red><bold>Tmb Studio</bold></red>
 

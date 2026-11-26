@@ -3,7 +3,7 @@ import {
   ModalBuilder, PermissionFlagsBits as P, StringSelectMenuBuilder,
 } from 'discord.js';
 import { eventos as cfg, verificacionMc as verifCfg } from '../config.js';
-import { darAlta } from '../datos.js';
+import { darAlta, duenoDe, staffDe } from '../datos.js';
 import { normativaEvento, pasoMensajesPrivados as md, politicaPremios } from '../textos.js';
 import { nivelDe, ts } from '../util.js';
 import { anadirWhitelist, exarotonConfigurado, quitarWhitelist } from '../exaroton.js';
@@ -19,6 +19,12 @@ const totalPasos = (estado) => (estado.conPremio ? 5 : 4);
 const progreso = (n, total) => `${'🟩'.repeat(n)}${'⬛'.repeat(total - n)}  ·  Paso ${n} de ${total}`;
 // Los eventos creados con /crearevento sin premio llevan «🏆 Sin premio» en la descripción
 const tienePremio = (evento) => !evento?.description?.includes('🏆 Sin premio');
+// Nametags del staff (registrados con /micodigo o puestos en la configuración): nadie más puede usarlos
+function nametagProtegido(nametag, userId) {
+  const staff = staffDe(nametag);
+  if (staff) return staff.userId !== userId;
+  return (verifCfg.nametagsProtegidos ?? []).some((n) => n.toLowerCase() === nametag.toLowerCase());
+}
 const btn = (id, label, emoji, estilo = ButtonStyle.Primary) =>
   new ButtonBuilder().setCustomId(id).setLabel(label).setEmoji(emoji).setStyle(estilo);
 const fila = (...b) => new ActionRowBuilder().addComponents(b);
@@ -284,6 +290,13 @@ async function registrar(guild, estado, usuario) {
     .setColor(COLOR.marca)
     .setFooter({ text: `Pendiente de revisión · evento:${estado.eventoId}` })
     .setTimestamp();
+  const dueno = duenoDe(estado.nametag);
+  if (dueno && dueno.userId !== usuario.id) {
+    embed.setColor(COLOR.peligro).addFields({
+      name: '⚠️ Nametag vinculado a otra cuenta',
+      value: `Este nametag pertenece a <@${dueno.userId}> desde ${ts(dueno.desde, 'D')}.\nSi aceptas esta inscripción, **se le quitará** el nametag y pasará a esta cuenta.`,
+    });
+  }
   const payload = {
     embeds: [embed],
     components: [fila(btn(`ev:aceptar:${estado.eventoId}:${usuario.id}`, 'Aceptar usuario', '✅', ButtonStyle.Success))],
@@ -301,13 +314,31 @@ async function registrar(guild, estado, usuario) {
   }
 }
 
-async function aceptarUsuario(i, eventoId, userId) {
+// Pide confirmación si el nametag ya pertenece a otra cuenta; si es del staff, no deja aceptar
+async function aceptarUsuario(i, eventoId, userId, forzado = null) {
   if (nivelDe(i.member) < cfg.nivelAceptar) {
     return i.reply({ content: `⛔ Solo el nivel de autoridad ${cfg.nivelAceptar} puede aceptar usuarios.`, flags: MessageFlags.Ephemeral });
   }
+  const mensaje = forzado ?? i.message; // el mensaje del registro
+  const nametagRegistro = nametagDe(mensaje);
+  if (nametagRegistro && nametagProtegido(nametagRegistro, userId)) {
+    return i.reply({ content: `⛔ \`${nametagRegistro}\` pertenece a un miembro del staff. Esta inscripción no se puede aceptar.`, flags: MessageFlags.Ephemeral });
+  }
+  const dueno = nametagRegistro ? duenoDe(nametagRegistro) : null;
+  if (!forzado && dueno && dueno.userId !== userId) {
+    return i.reply({
+      content: `⚠️ \`${nametagRegistro}\` pertenece a <@${dueno.userId}> desde ${ts(dueno.desde, 'D')}.\nSi aceptas, **se le quitará el nametag a esa cuenta**: su código dejará de valer y pasará a <@${userId}>.\n\n¿Seguro que esta es la cuenta correcta?`,
+      components: [fila(
+        btn(`ev:forzar:${eventoId}:${userId}:${mensaje.id}`, 'Sí, cambiar de dueño y aceptar', '⚠️', ButtonStyle.Danger),
+        btn('ev:noforzar', 'Cancelar', '✖️', ButtonStyle.Secondary),
+      )],
+      flags: MessageFlags.Ephemeral,
+      allowedMentions: { parse: [] },
+    });
+  }
   await i.deferUpdate();
   const evento = await buscarEvento(i.guild, eventoId);
-  const nombre = evento?.name ?? i.message.embeds[0]?.author?.name?.replace(/^🎮 /, '') ?? 'el evento';
+  const nombre = evento?.name ?? mensaje.embeds[0]?.author?.name?.replace(/^🎮 /, '') ?? 'el evento';
   const usuario = await i.client.users.fetch(userId).catch(() => null);
 
   const dm = new EmbedBuilder()
@@ -317,7 +348,7 @@ async function aceptarUsuario(i, eventoId, userId) {
     .setColor(COLOR.ok)
     .setFooter({ text: `Tmb Studio · ${i.guild.name}` })
     .setTimestamp();
-  const nametag = nametagDe(i.message);
+  const nametag = nametagRegistro;
   const alta = nametag ? darAlta({ nametag, userId, eventoId, eventoNombre: nombre }) : null;
   if (alta) {
     const min = Math.floor(verifCfg.segundos / 60);
@@ -344,18 +375,25 @@ async function aceptarUsuario(i, eventoId, userId) {
 
   const wl = await cambiarWhitelist(nametag, true);
 
-  const actualizado = EmbedBuilder.from(i.message.embeds[0])
+  const actualizado = EmbedBuilder.from(mensaje.embeds[0])
     .setTitle('✅ Inscripción aceptada')
     .setColor(COLOR.ok)
     .addFields(
-      { name: '🛡️ Estado', value: `Aceptado por ${i.user} ${ts(Date.now(), 'R')}${enviado ? '\n📩 Mensaje privado enviado' : '\n⚠️ No se pudo enviar el mensaje privado (tiene los MD cerrados)'}` },
+      { name: '🛡️ Estado', value: `Aceptado por ${i.user} ${ts(Date.now(), 'R')}${enviado ? '\n📩 Mensaje privado enviado' : '\n⚠️ No se pudo enviar el mensaje privado (tiene los MD cerrados)'}${forzado && dueno ? `\n⚠️ Nametag quitado a <@${dueno.userId}>` : ''}` },
       { name: '📃 Whitelist', value: wl.texto },
     )
     .setFooter({ text: `Aceptado · evento:${eventoId}` });
-  await i.editReply({
+  const payload = {
     embeds: [actualizado],
     components: [botonesAceptado(i.user.username, eventoId, userId, wl.ok)],
-  });
+    allowedMentions: { parse: [] },
+  };
+  if (forzado) {
+    await mensaje.edit(payload);
+    await i.editReply({ content: `✅ Aceptado. \`${nametag}\` ahora pertenece a <@${userId}>.`, components: [] });
+  } else {
+    await i.editReply(payload);
+  }
   if (!enviado) {
     await i.followUp({ content: `⚠️ Usuario aceptado, pero no he podido enviarle el mensaje privado${usuario ? ` a ${usuario}` : ''}. Avísale tú${alta ? ` y pásale **en privado** su código de verificación: \`${alta.codigo}\`` : ''}.`, flags: MessageFlags.Ephemeral });
   }
@@ -464,6 +502,13 @@ export function registrarEventos(client) {
         .setColor(COLOR.peligro);
       return m.reply({ embeds: [aviso] }).catch(() => {});
     }
+    if (nametagProtegido(nametag, m.author.id)) {
+      const aviso = new EmbedBuilder()
+        .setTitle('⛔ Nametag no disponible')
+        .setDescription('Ese nametag pertenece a un **miembro del staff** y no se puede usar en el formulario.\n\nEscribe **tu** nametag de Minecraft.')
+        .setColor(COLOR.peligro);
+      return m.reply({ embeds: [aviso] }).catch(() => {});
+    }
     estado.nametag = nametag;
     reiniciarCaducidad(m.channel, estado);
     await m.react('✅').catch(() => {});
@@ -474,9 +519,16 @@ export function registrarEventos(client) {
     try {
       // Botones del mensaje público y del registro
       if (i.isButton() && i.customId.startsWith('ev:')) {
-        const [, accion, eventoId, userId] = i.customId.split(':');
+        const [, accion, eventoId, userId, mensajeId] = i.customId.split(':');
         if (accion === 'abrir') return await abrirFormulario(i, eventoId);
         if (accion === 'aceptar') return await aceptarUsuario(i, eventoId, userId);
+        if (accion === 'noforzar') return await i.update({ content: '❎ Cancelado, no se ha aceptado.', components: [] });
+        if (accion === 'forzar') {
+          const mensaje = await i.channel.messages.fetch(mensajeId).catch(() => null);
+          if (!mensaje) return await i.update({ content: '❌ No encuentro la inscripción.', components: [] });
+          if (mensaje.embeds[0]?.footer?.text?.startsWith('Aceptado')) return await i.update({ content: 'ℹ️ Esa inscripción ya estaba aceptada.', components: [] });
+          return await aceptarUsuario(i, eventoId, userId, mensaje);
+        }
         if (accion === 'wl' || accion === 'unwl') return await botonWhitelist(i, eventoId, userId, accion === 'wl');
         return;
       }
