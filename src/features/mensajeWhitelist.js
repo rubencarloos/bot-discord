@@ -3,6 +3,7 @@ import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle,
 } from 'discord.js';
 import { eventos as cfg } from '../config.js';
+import { jugador } from '../datos.js';
 import { nivelDe } from '../util.js';
 import { mensajesDelRegistro } from './whitelist.js';
 
@@ -11,8 +12,17 @@ const MAX_MENSAJE = 1800;
 const PAUSA_MS = 1200; // entre mensaje y mensaje, para no parecer spam a ojos de Discord
 const borradores = new Map(); // id de la interacción -> { eventoId, soloAceptados, archivos }
 
-const cabecera = (texto, conArchivos) =>
-  `**Desde Tmb Studio te han enviado:**\n**Mensaje:**\n${texto}${conArchivos ? '\n**Archivos:**' : ''}`;
+// codigo: el código de verificación del jugador (o null si no hay que ponerlo)
+const cabecera = (texto, conArchivos, codigo = null) =>
+  `**Desde Tmb Studio te han enviado:**\n**Mensaje:**\n${texto}`
+  + (codigo ? `\n\n🔐 **RECUERDA QUE TU CÓDIGO DE VERIFICACIÓN ES \`${codigo}\` Y SI NO LO PONES, SERÁS BANEADO**` : '')
+  + (conArchivos ? '\n**Archivos:**' : '');
+
+// Código de verificación del jugador, solo si ese nametag es de esa misma cuenta de Discord
+function codigoDe(d) {
+  const j = jugador(d.nametag);
+  return j && j.userId === d.userId ? j.codigo : null;
+}
 
 // Inscripciones del evento: [{ userId, nametag, aceptado }] sin repetir usuarios
 async function destinatarios(guild, eventoId, soloAceptados) {
@@ -41,7 +51,12 @@ export async function comandoMensajeWhitelist(i) {
   const grande = archivos.find((a) => a.size > 10 * 1024 * 1024);
   if (grande) return i.reply({ content: `❌ El archivo **${grande.name}** pesa más de 10 MB y el bot no puede enviarlo.`, flags: MessageFlags.Ephemeral });
 
-  borradores.set(i.id, { eventoId, soloAceptados: (i.options.getString('destinatarios') ?? 'aceptados') === 'aceptados', archivos });
+  borradores.set(i.id, {
+    eventoId,
+    soloAceptados: (i.options.getString('destinatarios') ?? 'aceptados') === 'aceptados',
+    conCodigo: i.options.getBoolean('codigo') ?? false,
+    archivos,
+  });
   setTimeout(() => borradores.delete(i.id), 15 * 60_000).unref();
 
   // El mensaje se escribe en un formulario para poder usar saltos de línea, como un mensaje normal
@@ -68,15 +83,19 @@ export async function modalMensajeWhitelist(i) {
   if (lista instanceof Error) return i.editReply(`❌ ${lista.message}`);
   if (!lista.length) return i.editReply(`ℹ️ No hay jugadores ${b.soloAceptados ? 'aceptados' : 'inscritos'} en ese evento.`);
   b.lista = lista;
+  const sinCodigo = b.conCodigo ? lista.filter((d) => !codigoDe(d)).length : 0;
   const nombre = (await i.guild.scheduledEvents.fetch(b.eventoId).catch(() => null))?.name ?? 'el evento';
 
   // Vista previa: exactamente lo que recibirán
   await i.editReply({
-    content: `👀 **Vista previa** · se enviará por privado a **${lista.length}** jugador(es) ${b.soloAceptados ? 'aceptados' : 'inscritos'} en **${nombre}**:\n─────────────`,
+    content: `👀 **Vista previa** · se enviará por privado a **${lista.length}** jugador(es) ${b.soloAceptados ? 'aceptados' : 'inscritos'} en **${nombre}**:`
+      + (b.conCodigo ? '\n🔐 Cada uno verá **su propio código** (aquí sale `123456` de ejemplo).' : '')
+      + (sinCodigo ? `\n⚠️ ${sinCodigo} no tienen código (sin aceptar, o el nametag es de otra cuenta): les llegará sin la línea del código.` : '')
+      + '\n─────────────',
     flags: MessageFlags.Ephemeral,
   });
   await i.followUp({
-    content: cabecera(b.texto, b.archivos.length),
+    content: cabecera(b.texto, b.archivos.length, b.conCodigo ? '123456' : null),
     files: b.archivos.map((a) => ({ attachment: a.url, name: a.name })),
     flags: MessageFlags.Ephemeral,
     allowedMentions: { parse: [] },
@@ -103,7 +122,7 @@ export async function botonMensajeWhitelist(i) {
   let enviados = 0;
   for (const d of b.lista) {
     const ok = await i.client.users.fetch(d.userId)
-      .then((u) => u.send({ content: cabecera(b.texto, b.archivos.length), files: b.archivos.map((a) => ({ attachment: a.url, name: a.name })), allowedMentions: { parse: [] } }))
+      .then((u) => u.send({ content: cabecera(b.texto, b.archivos.length, b.conCodigo ? codigoDe(d) : null), files: b.archivos.map((a) => ({ attachment: a.url, name: a.name })), allowedMentions: { parse: [] } }))
       .then(() => true)
       .catch(() => false);
     if (ok) enviados++;
