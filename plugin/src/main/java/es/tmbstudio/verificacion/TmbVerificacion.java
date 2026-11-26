@@ -97,7 +97,8 @@ public final class TmbVerificacion extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this, this);
         // Por si el bot cambia el archivo y no llega el "reload": se revisa cada 30 s
         Bukkit.getScheduler().runTaskTimer(this, () -> cargarCodigos(false), 600L, 600L);
-        getLogger().info("Verificación activa: " + codigos.size() + " jugador(es) con código, " + verificados.size() + " verificado(s).");
+        if (!activo()) getLogger().warning("La verificación está DESACTIVADA. Actívala con /verification activar");
+        getLogger().info("Verificación " + (activo() ? "activada" : "desactivada") + ": " + codigos.size() + " jugador(es) con código, " + verificados.size() + " verificado(s).");
     }
 
     @Override
@@ -213,7 +214,7 @@ public final class TmbVerificacion extends JavaPlugin implements Listener {
     // ─── Antes de entrar: duplicados e IP distinta ──────────────────────────
     @EventHandler(priority = EventPriority.HIGHEST)
     public void alPreEntrar(AsyncPlayerPreLoginEvent e) {
-        if (e.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) return;
+        if (e.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED || !activo()) return;
         String nombre = e.getName();
         String k = clave(nombre);
         String ip = e.getAddress().getHostAddress();
@@ -235,7 +236,7 @@ public final class TmbVerificacion extends JavaPlugin implements Listener {
         Player p = e.getPlayer();
         String k = clave(p.getName());
         conectados.add(k);
-        if (!codigos.containsKey(k)) return; // no es jugador de ningún evento (staff, etc.)
+        if (!activo() || !codigos.containsKey(k)) return; // no es jugador de ningún evento (staff, etc.)
         String ip = ipDe(p);
         if (estaVerificado(k) && verificados.get(k).ip().equals(ip)) return;
 
@@ -315,7 +316,61 @@ public final class TmbVerificacion extends JavaPlugin implements Listener {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (command.getName().equalsIgnoreCase("verificacion")) return comandoVerificacion(sender, args);
+        if (command.getName().equalsIgnoreCase("verification")) return comandoEstado(sender, args);
         return comandoAdmin(sender, args);
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (command.getName().equalsIgnoreCase("verification") && args.length == 1) {
+            return List.of("activar", "desactivar", "estado").stream().filter(o -> o.startsWith(args[0].toLowerCase(Locale.ROOT))).toList();
+        }
+        return List.of();
+    }
+
+    // ─── /verification activar | desactivar | estado ────────────────────────
+    private boolean activo() {
+        return getConfig().getBoolean("activado", true);
+    }
+
+    private boolean comandoEstado(CommandSender sender, String[] args) {
+        String sub = args.length > 0 ? args[0].toLowerCase(Locale.ROOT) : "estado";
+        String quien = sender instanceof Player p ? p.getName() : "Consola";
+        switch (sub) {
+            case "activar" -> {
+                if (activo()) {
+                    sender.sendMessage(msg("estado-ya-activado", null));
+                    return true;
+                }
+                getConfig().set("activado", true);
+                saveConfig();
+                log("ESTADO " + quien + " activado");
+                sender.sendMessage(msg("estado-activado", null));
+                // Los que ya están dentro sin verificar tendrán que verificarse al volver a entrar
+            }
+            case "desactivar" -> {
+                if (!activo()) {
+                    sender.sendMessage(msg("estado-ya-desactivado", null));
+                    return true;
+                }
+                getConfig().set("activado", false);
+                saveConfig();
+                // Se libera a quien estaba esperando para poner el código
+                for (String k : new ArrayList<>(pendientes.keySet())) {
+                    Pendiente pend = pendientes.remove(k);
+                    pend.tareas.forEach(BukkitTask::cancel);
+                    Player j = Bukkit.getPlayerExact(pend.nametag);
+                    if (j != null) liberar(j, pend);
+                }
+                log("ESTADO " + quien + " desactivado");
+                sender.sendMessage(msg("estado-desactivado", null));
+            }
+            case "estado" -> sender.sendMessage(msg(activo() ? "estado-es-activado" : "estado-es-desactivado", null)
+                    .append(net.kyori.adventure.text.Component.text("  (" + codigos.size() + " códigos, " + verificados.size() + " verificados, "
+                            + pendientes.size() + " pendientes)", net.kyori.adventure.text.format.NamedTextColor.GRAY)));
+            default -> sender.sendMessage(msg("estado-uso", null));
+        }
+        return true;
     }
 
     private boolean comandoVerificacion(CommandSender sender, String[] args) {
@@ -326,7 +381,7 @@ public final class TmbVerificacion extends JavaPlugin implements Listener {
         String k = clave(p.getName());
         Pendiente pend = pendientes.get(k);
         if (pend == null) {
-            p.sendMessage(msg(codigos.containsKey(k) ? "ya-verificado" : "no-necesitas", null));
+            p.sendMessage(msg(!activo() ? "desactivada" : codigos.containsKey(k) ? "ya-verificado" : "no-necesitas", null));
             return true;
         }
         if (args.length == 0) {

@@ -1,6 +1,9 @@
 # TmbVerificacion · configuración
 # Los códigos los envía el bot de Discord al archivo codigos.json de esta carpeta. No lo edites a mano.
 
+# Verificación activada o desactivada (se cambia en el juego con /verification activar | desactivar)
+activado: true
+
 # Segundos que tiene el jugador para poner /verificacion CODIGO antes del ban-ip
 segundos: 90
 
@@ -35,6 +38,14 @@ mensajes:
   no-necesitas: '<gold><bold>[Tmb Studio]</bold></gold> <gray>No necesitas verificarte.</gray>'
   uso: '<gold><bold>[Tmb Studio]</bold></gold> <yellow>Uso: /verificacion TUCODIGOAQUI</yellow>'
   bloqueado: '<gold><bold>[Tmb Studio]</bold></gold> <red>Primero tienes que verificarte con</red> <yellow><bold>/verificacion TUCODIGOAQUI</bold></yellow>'
+  desactivada: '<gold><bold>[Tmb Studio]</bold></gold> <gray>La verificación está desactivada ahora mismo.</gray>'
+  estado-activado: '<gold><bold>[Tmb Studio]</bold></gold> <green>Verificación <bold>ACTIVADA</bold>.</green>'
+  estado-desactivado: '<gold><bold>[Tmb Studio]</bold></gold> <red>Verificación <bold>DESACTIVADA</bold>. Cualquiera de la whitelist puede entrar sin código.</red>'
+  estado-ya-activado: '<gold><bold>[Tmb Studio]</bold></gold> <gray>La verificación ya estaba activada.</gray>'
+  estado-ya-desactivado: '<gold><bold>[Tmb Studio]</bold></gold> <gray>La verificación ya estaba desactivada.</gray>'
+  estado-es-activado: '<gold><bold>[Tmb Studio]</bold></gold> <white>Verificación:</white> <green><bold>ACTIVADA</bold></green>'
+  estado-es-desactivado: '<gold><bold>[Tmb Studio]</bold></gold> <white>Verificación:</white> <red><bold>DESACTIVADA</bold></red>'
+  estado-uso: '<gold><bold>[Tmb Studio]</bold></gold> <yellow>Uso: /verification activar | desactivar | estado</yellow>'
   rechazo-duplicado: |-
     <red><bold>Tmb Studio</bold></red>
 

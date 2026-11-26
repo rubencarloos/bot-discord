@@ -10,6 +10,10 @@ commands:
     description: Verifica tu identidad con el código que recibiste en Discord
     usage: /verificacion <código>
     permission: tmbverificacion.usar
+  verification:
+    description: Activa, desactiva o muestra el estado de la verificación
+    usage: /verification <activar|desactivar|estado>
+    permission: tmbverificacion.admin
   tmbverif:
     description: Administración de la verificación (reload, reset, estado)
     usage: /tmbverif <reload|reset <nametag>|estado>

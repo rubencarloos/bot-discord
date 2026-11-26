@@ -12,7 +12,7 @@ import { alCambiarCodigos, codigosParaPlugin, jugador, marcarVerificado } from '
 import { exarotonConfigurado } from '../exaroton.js';
 import { nivelDe, ts } from '../util.js';
 
-const RE_TMBV = /\[TMBV\] (PENDIENTE|VERIFICADO|BAN|RECHAZADO|RESET) (\w{1,16})(?: (\S+))?(?: (.+))?$/;
+const RE_TMBV = /\[TMBV\] (PENDIENTE|VERIFICADO|BAN|RECHAZADO|RESET|ESTADO) (\w{1,16})(?: (\S+))?(?: (.+))?$/;
 const COLOR = { pendiente: 0xfee75c, ok: 0x57f287, ban: 0xed4245, rechazo: 0xe67e22, info: 0x5865f2 };
 
 let servidor = null;
@@ -127,6 +127,14 @@ export async function procesarLinea(linea) {
     return avisar(base(COLOR.rechazo, '🚷 Conexión rechazada',
       `Alguien intentó entrar como \`${nametag}\` (${discordDe(j)}) **desde una conexión distinta** a la verificada. No se le ha dejado entrar.\n\nSi es el jugador de verdad (por ejemplo, le ha cambiado la IP), pulsa **Permitir nueva IP**: podrá entrar y tendrá que volver a poner su código.`)
       .addFields(campoIp('🌐 IP del intento', ip), campoIp('🔐 IP verificada', j?.ip ?? '—')), [boton]);
+  }
+  if (tipo === 'ESTADO') { // [TMBV] ESTADO <quién> activado|desactivado
+    const activado = ip === 'activado';
+    return avisar(base(activado ? COLOR.ok : COLOR.ban, activado ? '🟢 Verificación activada' : '🔴 Verificación desactivada',
+      activado
+        ? `\`${nametag}\` ha **activado** la verificación en el servidor.`
+        : `\`${nametag}\` ha **desactivado** la verificación en el servidor.
+⚠️ Mientras esté desactivada, **cualquiera de la whitelist puede entrar sin código**, también con el nombre de otro jugador o del staff.`));
   }
   if (tipo === 'RESET') marcarVerificado(nametag, null);
   return null;
