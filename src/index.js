@@ -9,6 +9,7 @@ import { registrarCrearEvento } from './features/crearEvento.js';
 import { registrarAsistencia } from './features/asistencia.js';
 import { registrarVerificacionMc } from './features/verificacionMc.js';
 import { registrarMensajeWhitelist } from './features/mensajeWhitelist.js';
+import { registrarIp } from './features/ip.js';
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 if (!DISCORD_TOKEN || !CLIENT_ID) {
@@ -45,6 +46,7 @@ registrarCrearEvento(client);
 registrarAsistencia(client);
 registrarVerificacionMc(client);
 registrarMensajeWhitelist(client);
+registrarIp(client);
 
 client.once(Events.ClientReady, (c) => console.log(`✅ Conectado como ${c.user.tag}`));
 

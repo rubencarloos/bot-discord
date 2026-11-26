@@ -26,7 +26,7 @@ function codigoDe(d) {
 }
 
 // Inscripciones del evento: [{ userId, nametag, aceptado }] sin repetir usuarios
-async function destinatarios(guild, eventoId, soloAceptados) {
+export async function destinatarios(guild, eventoId, soloAceptados) {
   const reg = await guild.channels.fetch(cfg.registroId).catch(() => null);
   if (!reg) throw new Error('No encuentro el canal de registro de eventos');
   const vistos = new Map();

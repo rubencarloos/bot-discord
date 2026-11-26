@@ -36,6 +36,8 @@ export function precargarEventos(guild) {
   return cacheRegistro.cargando;
 }
 
+export const nombreEventoRegistro = (id) => cacheRegistro.eventos.get(id)?.nombre ?? null;
+
 const esperar = (ms) => new Promise((r) => { setTimeout(r, ms, null).unref?.(); });
 
 // Discord solo espera 3 segundos la lista: si algo tarda, se usa lo que haya en memoria
