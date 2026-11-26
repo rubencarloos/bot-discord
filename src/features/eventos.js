@@ -106,7 +106,11 @@ export function mensajeFormulario(guild, evento, { compacto = false } = {}) {
 
 export async function autocompletarEventos(interaction) {
   const texto = interaction.options.getFocused().toLowerCase();
-  const lista = await interaction.guild.scheduledEvents.fetch().catch(() => null);
+  // Discord solo espera 3 s: si pedir los eventos tarda, se usa lo que haya en memoria
+  const lista = await Promise.race([
+    interaction.guild.scheduledEvents.fetch().catch(() => null),
+    new Promise((r) => { setTimeout(r, 1500, null).unref?.(); }),
+  ]) ?? interaction.guild.scheduledEvents.cache;
   const opciones = [...(lista?.values() ?? [])]
     .filter((e) => e.name.toLowerCase().includes(texto) || e.id.startsWith(texto))
     .sort((a, b) => a.scheduledStartTimestamp - b.scheduledStartTimestamp)

@@ -10,13 +10,28 @@ import { leerAceptado, mensajesDelRegistro } from './whitelist.js';
 const NIVEL = 5;
 const deEvento = (m, id) => m.embeds[0]?.footer?.text?.endsWith(`evento:${id}`);
 
+// Discord solo espera 3 segundos la lista: si pedir los eventos tarda, se usa lo que haya en memoria
 export async function autocompletar(i) {
-  const texto = i.options.getFocused().toLowerCase();
-  const mapa = new Map(eventosGuardados().map((e) => [e.id, `${e.nombre} · ${e.jugadores} aceptado(s)`]));
-  const programados = await i.guild.scheduledEvents.fetch().catch(() => new Map());
-  for (const ev of programados.values()) if (!mapa.has(ev.id)) mapa.set(ev.id, ev.name);
-  const opciones = [...mapa].filter(([, n]) => !texto || n.toLowerCase().includes(texto)).slice(0, 25);
-  return i.respond(opciones.map(([value, name]) => ({ name: name.slice(0, 100), value })));
+  try {
+    const texto = String(i.options.getFocused() ?? '').toLowerCase();
+    const mapa = new Map();
+    for (const e of eventosGuardados()) {
+      if (/^\d{15,}$/.test(e.id)) mapa.set(e.id, `${e.nombre ?? 'Evento'} · ${e.jugadores} aceptado(s)`);
+    }
+    const programados = await Promise.race([
+      i.guild.scheduledEvents.fetch().catch(() => null),
+      new Promise((r) => { setTimeout(r, 1500, null).unref?.(); }),
+    ]) ?? i.guild.scheduledEvents.cache;
+    for (const ev of programados.values()) if (!mapa.has(ev.id)) mapa.set(ev.id, ev.name || 'Evento sin nombre');
+    const opciones = [...mapa]
+      .filter(([id, n]) => !texto || n.toLowerCase().includes(texto) || id.startsWith(texto))
+      .slice(0, 25)
+      .map(([value, name]) => ({ name: name.slice(0, 100), value }));
+    return await i.respond(opciones);
+  } catch (e) {
+    console.error('Autocompletar eventos:', e.message);
+    return i.respond([]).catch(() => {});
+  }
 }
 
 export async function eliminarFormularios(i) {
