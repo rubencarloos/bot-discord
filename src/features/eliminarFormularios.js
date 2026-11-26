@@ -10,17 +10,47 @@ import { leerAceptado, mensajesDelRegistro } from './whitelist.js';
 const NIVEL = 5;
 const deEvento = (m, id) => m.embeds[0]?.footer?.text?.endsWith(`evento:${id}`);
 
-// Discord solo espera 3 segundos la lista: si pedir los eventos tarda, se usa lo que haya en memoria
+// Eventos sacados del canal de registro (siempre tiene todas las inscripciones, aunque el evento ya haya pasado).
+// Se guarda en memoria 2 minutos porque leer el registro entero es lento.
+let cacheRegistro = { cuando: 0, eventos: new Map(), cargando: null };
+async function eventosDelRegistro(guild) {
+  const reg = await guild.channels.fetch(cfg.registroId).catch(() => null);
+  const eventos = new Map(); // id -> { nombre, inscritos, aceptados }
+  if (!reg) return eventos;
+  for (const m of await mensajesDelRegistro(reg)) {
+    const e = m.embeds[0];
+    const id = e?.footer?.text?.match(/evento:(\d{15,})/)?.[1];
+    if (!id) continue;
+    const ev = eventos.get(id) ?? { nombre: e.author?.name?.replace(/^🎮 /, '') || 'Evento', inscritos: 0, aceptados: 0 };
+    ev.inscritos++;
+    if (e.footer.text.startsWith('Aceptado')) ev.aceptados++;
+    eventos.set(id, ev);
+  }
+  return eventos;
+}
+export function precargarEventos(guild) {
+  if (cacheRegistro.cargando) return cacheRegistro.cargando;
+  cacheRegistro.cargando = eventosDelRegistro(guild)
+    .then((eventos) => { cacheRegistro = { cuando: Date.now(), eventos, cargando: null }; })
+    .catch((e) => { console.error('Leyendo eventos del registro:', e.message); cacheRegistro.cargando = null; });
+  return cacheRegistro.cargando;
+}
+
+const esperar = (ms) => new Promise((r) => { setTimeout(r, ms, null).unref?.(); });
+
+// Discord solo espera 3 segundos la lista: si algo tarda, se usa lo que haya en memoria
 export async function autocompletar(i) {
   try {
     const texto = String(i.options.getFocused() ?? '').toLowerCase();
     const mapa = new Map();
+    if (Date.now() - cacheRegistro.cuando > 120_000) await Promise.race([precargarEventos(i.guild), esperar(1200)]);
+    for (const [id, e] of cacheRegistro.eventos) mapa.set(id, `${e.nombre} · ${e.aceptados} aceptado(s) de ${e.inscritos}`);
     for (const e of eventosGuardados()) {
-      if (/^\d{15,}$/.test(e.id)) mapa.set(e.id, `${e.nombre ?? 'Evento'} · ${e.jugadores} aceptado(s)`);
+      if (/^\d{15,}$/.test(e.id) && !mapa.has(e.id)) mapa.set(e.id, `${e.nombre ?? 'Evento'} · ${e.jugadores} aceptado(s)`);
     }
     const programados = await Promise.race([
       i.guild.scheduledEvents.fetch().catch(() => null),
-      new Promise((r) => { setTimeout(r, 1500, null).unref?.(); }),
+      esperar(700),
     ]) ?? i.guild.scheduledEvents.cache;
     for (const ev of programados.values()) if (!mapa.has(ev.id)) mapa.set(ev.id, ev.name || 'Evento sin nombre');
     const opciones = [...mapa]

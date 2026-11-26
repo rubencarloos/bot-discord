@@ -5,6 +5,7 @@ import {
 import { eventos as cfg } from '../config.js';
 import { jugador } from '../datos.js';
 import { nivelDe } from '../util.js';
+import { precargarEventos } from './eliminarFormularios.js';
 import { mensajesDelRegistro } from './whitelist.js';
 
 const NIVEL = 5;
@@ -144,6 +145,8 @@ export async function botonMensajeWhitelist(i) {
 }
 
 export function registrarMensajeWhitelist(client) {
+  // Leer el registro al arrancar para que la lista de eventos salga al momento
+  client.once('clientReady', () => { for (const g of client.guilds.cache.values()) precargarEventos(g); });
   client.on('interactionCreate', async (i) => {
     try {
       if (i.isModalSubmit() && i.customId.startsWith('mwl:modal:')) return await modalMensajeWhitelist(i);
