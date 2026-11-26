@@ -19,6 +19,7 @@ try {
 datos.jugadores ??= {};
 datos.staff ??= {};
 datos.duenos ??= {};
+datos.ipsProgramadas ??= {}; // id del canal -> { ip, cuando, usuarios: [ids], nombre }  (/ip con hora)
 // Los aceptados de antes de existir los dueños pasan a ser dueños de su nametag
 for (const [clave, j] of Object.entries(datos.jugadores)) datos.duenos[clave] ??= { nametag: j.nametag, userId: j.userId, desde: Date.now() };
 
@@ -145,4 +146,17 @@ export function registrarStaff(userId, nametag, nuevo = false) {
   if (datos.jugadores[k(nametag)]?.userId === userId) datos.jugadores[k(nametag)].codigo = s.codigo;
   guardar();
   return { staff: s, anterior: previo && !mismo ? previo.nametag : null };
+}
+
+// ─── IPs programadas (/ip con hora) ──────────────────────────────────────────
+export const ipsProgramadas = () => Object.entries(datos.ipsProgramadas).map(([canalId, p]) => ({ canalId, ...p }));
+
+export function programarIp(canalId, datosIp) {
+  datos.ipsProgramadas[canalId] = datosIp;
+  guardar(false);
+}
+
+export function quitarIpProgramada(canalId) {
+  delete datos.ipsProgramadas[canalId];
+  guardar(false);
 }
