@@ -36,15 +36,25 @@ export function programarSincronizacion() {
   pendienteSync = setTimeout(sincronizar, 1500);
 }
 
-async function sincronizar() {
+// Escribe codigos.json en el servidor, lo vuelve a leer para comprobarlo y pide al plugin que lo recargue.
+// Devuelve { ok, error }.
+export async function sincronizar() {
+  clearTimeout(pendienteSync);
+  if (!servidor) return { ok: false, error: 'exaroton no está configurado' };
   try {
-    await servidor.getFile(cfg.rutaCodigos).putContent(JSON.stringify(codigosParaPlugin(), null, 2));
+    const contenido = JSON.stringify(codigosParaPlugin(), null, 2);
+    const archivo = servidor.getFile(cfg.rutaCodigos);
+    await archivo.putContent(contenido);
+    const leido = await archivo.getContent().catch(() => null);
+    if (leido !== null && String(leido).trim() !== contenido.trim()) throw new Error('el archivo del servidor no coincide tras escribirlo');
     // Si el servidor está encendido, que lo recargue ya (si no, lo leerá al arrancar)
     await servidor.executeCommand('tmbverif reload').catch(() => {});
     console.log('🔐 Códigos enviados al plugin del servidor');
+    return { ok: true };
   } catch (e) {
     console.error('⚠️ No se pudieron enviar los códigos al servidor:', e.message);
     pendienteSync = setTimeout(sincronizar, 60_000); // reintentar
+    return { ok: false, error: e.message };
   }
 }
 

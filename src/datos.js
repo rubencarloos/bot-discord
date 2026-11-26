@@ -6,6 +6,7 @@ import path from 'node:path';
 
 const DIR = process.env.DATA_DIR || (existsSync('/data') ? '/data' : path.resolve('data'));
 const ARCHIVO = path.join(DIR, 'verificacion.json');
+export const almacenamientoPersistente = DIR === '/data' || Boolean(process.env.DATA_DIR);
 if (DIR !== '/data' && !process.env.DATA_DIR) console.warn(`⚠️ No hay volumen en /data: los códigos se guardan en ${DIR} y se perderán al redesplegar.`);
 
 // jugadores: nametag (minúsculas) -> { nametag, userId, codigo, eventos: { id: nombre }, ip, verificadoEn }

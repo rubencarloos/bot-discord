@@ -1,8 +1,11 @@
 // /micodigo (staff: código fijo para entrar al servidor) y /nametag (ver o liberar el dueño de un nametag)
 import { EmbedBuilder, MessageFlags } from 'discord.js';
 import { verificacionMc as cfg } from '../config.js';
-import { duenoDe, jugador, liberarDueno, registrarStaff, staffDe, staffDeUsuario } from '../datos.js';
+import {
+  almacenamientoPersistente, duenoDe, jugador, liberarDueno, registrarStaff, staffDe, staffDeUsuario,
+} from '../datos.js';
 import { anadirWhitelist, exarotonConfigurado } from '../exaroton.js';
+import { sincronizar } from './verificacionMc.js';
 import { nivelDe, ts } from '../util.js';
 
 const NAMETAG_VALIDO = /^[A-Za-z0-9_]{3,16}$/;
@@ -40,6 +43,17 @@ export async function comandoMiCodigo(i) {
       { name: '🎮 Cómo usarlo', value: `> La **primera vez** que entres al servidor escribe \`/verificacion ${staff.codigo}\`.\n> A partir de ahí tu nametag **solo podrá entrar desde tu conexión**, así nadie podrá hacerse pasar por ti ni usar tus permisos.` },
       { name: '⚠️ Importante', value: '> Si lo pones mal o no lo pones a tiempo, tu conexión quedará **bloqueada**.\n> Si te cambia la IP, otro miembro del staff puede pulsar **🔓 Permitir nueva IP** en el aviso de seguridad.\n> Usa `/micodigo nuevo:True` si crees que alguien conoce tu código.' },
     );
+  // Comprobar que el código ha llegado de verdad al plugin del servidor
+  const sync = await sincronizar();
+  embed.addFields({
+    name: '🖥️ Servidor de Minecraft',
+    value: sync.ok
+      ? '✅ Código enviado y comprobado en el servidor. Ya puedes usarlo.'
+      : `❌ **El código NO ha llegado al servidor** (${sync.error}). **No lo uses todavía** o te bloqueará. Avisa a un admin.`,
+  });
+  if (!almacenamientoPersistente) {
+    embed.addFields({ name: '⚠️ Aviso para los admins', value: 'El bot no tiene el volumen `/data` en Railway: los códigos se pierden cada vez que se actualiza el bot.' });
+  }
   const md = await i.user.send({ embeds: [embed] }).then(() => true).catch(() => false);
   return i.editReply({ content: md ? '📩 Te lo he enviado también por privado para que lo guardes.' : '', embeds: [embed] });
 }
